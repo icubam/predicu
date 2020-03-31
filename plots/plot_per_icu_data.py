@@ -3,13 +3,13 @@ import matplotlib.pyplot as plt
 import matplotlib.style
 import seaborn as sns
 
-from predicu.data import load_and_preprocess_data
+from predicu.data import load_icubam_bedcount_data
 
 matplotlib.style.use('seaborn-whitegrid')
 
 bedcount_path = 'data/bedcount_2020-03-31.pickle'
 
-data = load_and_preprocess_data(bedcount_path)
+data = load_icubam_bedcount_data(bedcount_path)
 
 columns = ['n_covid_free', 'n_covid_occ', 'n_covid_deaths', 'n_covid_healed']
 
