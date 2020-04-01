@@ -8,20 +8,17 @@ from predicu.data import CUM_COLUMNS
 
 matplotlib.style.use('seaborn-whitegrid')
 
-icubam_bedcount_path = 'data/bedcount_2020-03-31.pickle'
-pre_icubam_path = 'data/pre_icubam_data.csv'
-data = load_all_data(
-  icubam_bedcount_path=icubam_bedcount_path, pre_icubam_path=pre_icubam_path
-)
+data = load_all_data()
 
-n_rows = (len(CUM_COLUMNS) + len(CUM_COLUMNS) % 2) // 2
-
-fig = plt.figure(figsize=(n_rows * 7, 14))
-gs = matplotlib.gridspec.GridSpec(n_rows, 2)
+fig = plt.figure(figsize=(10, len(CUM_COLUMNS) * 10))
+gs = matplotlib.gridspec.GridSpec(len(CUM_COLUMNS), 1)
+ax0 = None
 for i, col in enumerate(CUM_COLUMNS):
-  ax = fig.add_subplot(gs[i // 2, (i + 1) % 2])
+  ax = fig.add_subplot(gs[i, 0], sharex=ax0)
+  if ax0 is None: ax0 = ax
   sns.lineplot(x='date', y=col, data=data)
   ax.set_title(col)
 fig.suptitle('Grand Est daily increases averaged over ICUs')
 fig.tight_layout()
-plt.show()
+# fig.subplots_adjust(hspace=1.0)
+fig.savefig('fig.pdf')

@@ -1,8 +1,13 @@
 import itertools
+import json
 import pickle
 
 import numpy as np
 import pandas as pd
+
+DEFAULT_ICUBAM_PATH = 'data/bedcount_2020-03-31.pickle'
+DEFAULT_PRE_ICUBAM_PATH = 'data/pre_icubam_data.csv'
+DEFAULT_ICU_NAME_TO_DEPARTMENT_PATH = 'data/icu_name_to_department.json'
 
 CUM_COLUMNS = [
   "n_covid_free",
@@ -14,7 +19,7 @@ CUM_COLUMNS = [
   "n_covid_refused",
 ]
 
-ALL_COLUMNS = ["icu_name", "date"] + CUM_COLUMNS
+ALL_COLUMNS = ["icu_name", "date", "department"] + CUM_COLUMNS
 
 MAX_DAY_INCREASE = {
   "n_covid_free": 20,
@@ -27,21 +32,9 @@ MAX_DAY_INCREASE = {
 }
 
 
-def load_data_file(data_path):
-  ext = data_path.rsplit(".", 1)[-1]
-  if ext == "pickle":
-    with open(data_path, "rb") as f:
-      d = pickle.load(f)
-  elif ext == "h5":
-    d = pd.read_hdf(data_path)
-  elif ext == "csv":
-    d = pd.read_csv(data_path)
-  else:
-    raise ValueError(f"unknown extension {ext}")
-  return d
-
-
-def load_all_data(icubam_bedcount_path, pre_icubam_path):
+def load_all_data(
+  icubam_path=DEFAULT_ICUBAM_PATH, pre_icubam_path=DEFAULT_PRE_ICUBAM_PATH
+):
   pre_icubam = load_pre_icubam_data(pre_icubam_path)
   fix_same_icu = {
     "CHR-SSPI": "CHR-Thionville",
@@ -52,7 +45,7 @@ def load_all_data(icubam_bedcount_path, pre_icubam_path):
     pre_icubam.loc[pre_icubam.icu_name == old, "icu_name"] = new
   pre_icubam = pre_icubam.groupby(["date", "icu_name"]).sum().reset_index()
   pre_icubam = pre_icubam.sort_values(by=["icu_name", "date"])
-  icubam = load_icubam_data(icubam_bedcount_path)
+  icubam = load_icubam_data(icubam_path)
   dates_in_both = set(icubam.date.unique()) & set(pre_icubam.date.unique())
   pre_icubam = pre_icubam.loc[~pre_icubam.date.isin(dates_in_both)]
   first_icubam_date = icubam.date.min()
@@ -86,22 +79,28 @@ def load_pre_icubam_data(pre_icubam_path, clean=True):
   }
   for wrong_name, fixed_name in fix_icu_names.items():
     d.loc[d.icu_name == wrong_name, "icu_name"] = fixed_name
-  d = d.assign(datetime=pd.to_datetime(d.date))
-  d = d.assign(date=d.datetime.dt.date)
   missing_columns = [
     "n_ncovid_free", "n_covid_transfered", "n_covid_refused", "n_ncodiv_free"
   ]
   for col in missing_columns:
     d[col] = 0
-  d = d[ALL_COLUMNS + ['datetime']]
+  d = format_data(d)
   return get_clean_daily_values(d) if clean else d
+
 
 def load_icubam_data(icubam_bedcount_path, clean=True):
   d = load_data_file(icubam_bedcount_path)
+  d = format_data(d)
+  return get_clean_daily_values(d) if clean else d
+
+
+def format_data(d):
   d = d.assign(datetime=pd.to_datetime(d.date))
   d = d.assign(date=d.datetime.dt.date)
+  icu_name_to_department = load_icu_name_to_department()
+  d['department'] = d.icu_name.apply(icu_name_to_department.get)
   d = d[ALL_COLUMNS + ['datetime']]
-  return get_clean_daily_values(d) if clean else d
+  return d
 
 
 def get_clean_daily_values(d):
@@ -141,3 +140,25 @@ def get_clean_daily_values(d):
     clean_data_points.append(new_data_point)
     per_icu_prev_data_point[icu_name] = new_data_point
   return pd.DataFrame(clean_data_points)
+
+
+def load_data_file(data_path):
+  ext = data_path.rsplit(".", 1)[-1]
+  if ext == "pickle":
+    with open(data_path, "rb") as f:
+      d = pickle.load(f)
+  elif ext == "h5":
+    d = pd.read_hdf(data_path)
+  elif ext == "csv":
+    d = pd.read_csv(data_path)
+  else:
+    raise ValueError(f"unknown extension {ext}")
+  return d
+
+
+def load_icu_name_to_department(
+  icu_name_to_department_path=DEFAULT_ICU_NAME_TO_DEPARTMENT_PATH
+):
+  with open(icu_name_to_department_path) as f:
+    icu_name_to_department = json.load(f)
+  return icu_name_to_department
