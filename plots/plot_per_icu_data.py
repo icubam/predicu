@@ -20,5 +20,4 @@ for i, col in enumerate(CUM_COLUMNS):
   ax.set_title(col)
 fig.suptitle('Grand Est daily increases averaged over ICUs')
 fig.tight_layout()
-# fig.subplots_adjust(hspace=1.0)
 fig.savefig('fig.pdf')

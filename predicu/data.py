@@ -10,21 +10,21 @@ DEFAULT_PRE_ICUBAM_PATH = 'data/pre_icubam_data.csv'
 DEFAULT_ICU_NAME_TO_DEPARTMENT_PATH = 'data/icu_name_to_department.json'
 
 CUM_COLUMNS = [
-  "n_covid_free",
-  "n_ncovid_free",
-  "n_covid_occ",
   "n_covid_deaths",
   "n_covid_healed",
   "n_covid_transfered",
   "n_covid_refused",
 ]
 
-ALL_COLUMNS = ["icu_name", "date", "department"] + CUM_COLUMNS
+NCUM_COLUMNS = [
+  "n_covid_free",
+  "n_ncovid_free",
+  "n_covid_occ",
+]
+
+ALL_COLUMNS = ["icu_name", "date", "department"] + CUM_COLUMNS + NCUM_COLUMNS
 
 MAX_DAY_INCREASE = {
-  "n_covid_free": 20,
-  "n_ncovid_free": 20,
-  "n_covid_occ": 20,
   "n_covid_deaths": 5,
   "n_covid_healed": 5,
   "n_covid_transfered": 20,
@@ -48,16 +48,8 @@ def load_all_data(
   icubam = load_icubam_data(icubam_path)
   dates_in_both = set(icubam.date.unique()) & set(pre_icubam.date.unique())
   pre_icubam = pre_icubam.loc[~pre_icubam.date.isin(dates_in_both)]
-  first_icubam_date = icubam.date.min()
-  last_pre_icubam_date = pre_icubam.date.max()
-  for icu_name in icubam.icu_name.unique():
-    first_mask = (icubam.date == first_icubam_date) & (icu_name == icu_name)
-    last_mask = \
-      (pre_icubam.date == last_pre_icubam_date) & \
-      (pre_icubam.icu_name == icu_name)
-    for col in CUM_COLUMNS:
-      icubam.loc[first_mask, col] -= pre_icubam.loc[last_mask, col]
-  return pd.concat([pre_icubam, icubam])
+  d = format_data(pd.concat([pre_icubam, icubam]), clean=True)
+  return d
 
 
 def load_pre_icubam_data(pre_icubam_path, clean=True):
@@ -79,27 +71,28 @@ def load_pre_icubam_data(pre_icubam_path, clean=True):
   }
   for wrong_name, fixed_name in fix_icu_names.items():
     d.loc[d.icu_name == wrong_name, "icu_name"] = fixed_name
-  missing_columns = [
-    "n_ncovid_free", "n_covid_transfered", "n_covid_refused", "n_ncodiv_free"
-  ]
+  missing_columns = ["n_covid_transfered", "n_covid_refused", "n_ncovid_free"]
   for col in missing_columns:
     d[col] = 0
-  d = format_data(d)
-  return get_clean_daily_values(d) if clean else d
+  return d
 
 
 def load_icubam_data(icubam_bedcount_path, clean=True):
   d = load_data_file(icubam_bedcount_path)
-  d = format_data(d)
-  return get_clean_daily_values(d) if clean else d
+  return d
 
 
-def format_data(d):
+def format_data(d, clean):
   d = d.assign(datetime=pd.to_datetime(d.date))
   d = d.assign(date=d.datetime.dt.date)
+  columns = ALL_COLUMNS
+  if clean:
+    d = get_clean_daily_values(d)
+  else:
+    columns.append('datetime')
   icu_name_to_department = load_icu_name_to_department()
   d['department'] = d.icu_name.apply(icu_name_to_department.get)
-  d = d[ALL_COLUMNS + ['datetime']]
+  d = d[columns]
   return d
 
 
@@ -107,24 +100,31 @@ def get_clean_daily_values(d):
   dates = sorted(list(d.date.unique()))
   icu_names = sorted(list(d.icu_name.unique()))
   clean_data_points = list()
-  prev_valid_values = {i: {c: None for c in CUM_COLUMNS} for i in icu_names}
+  prev_ncum_vals = dict()
+  prev_cum_vals = {i: {c: None for c in CUM_COLUMNS} for i in icu_names}
   per_icu_prev_data_point = dict()
   for date, icu_name in itertools.product(dates, icu_names):
+    sd = d.loc[(d.date == date) & (d.icu_name == icu_name)]
     new_data_point = {"date": date, "icu_name": icu_name}
     new_data_point.update({col: 0 for col in CUM_COLUMNS})
-    sd = d.loc[(d.date == date) & (d.icu_name == icu_name)]
+    new_data_point.update({col: 0 for col in NCUM_COLUMNS})
+    if icu_name in prev_ncum_vals:
+      new_data_point.update(prev_ncum_vals[icu_name])
     if len(sd) > 0:
+      new_ncum_vals = {col: sd[col].iloc[-1] for col in NCUM_COLUMNS}
+      new_data_point.update(new_ncum_vals)
+      prev_ncum_vals[icu_name] = new_ncum_vals
       sd = sd.sort_values(by="datetime")
       for col in CUM_COLUMNS:
-        if prev_valid_values[icu_name][col] is None:
+        if prev_cum_vals[icu_name][col] is None:
           new_data_point[col] = sd[col].iloc[-1]
-          prev_valid_values[icu_name][col] = {
+          prev_cum_vals[icu_name][col] = {
             'value': sd[col].iloc[-1],
             'date': date,
           }
         else:
-          prev_valid_value = prev_valid_values[icu_name][col]['value']
-          prev_valid_date = prev_valid_values[icu_name][col]['date']
+          prev_valid_value = prev_cum_vals[icu_name][col]['value']
+          prev_valid_date = prev_cum_vals[icu_name][col]['date']
           n_days_since_prev_valid = (date - prev_valid_date).days
           max_increase = n_days_since_prev_valid * MAX_DAY_INCREASE[col]
           for candidate in reversed(list(sd[col])):
@@ -132,7 +132,7 @@ def get_clean_daily_values(d):
               increase = candidate - prev_valid_value
               if increase <= max_increase:
                 new_data_point[col] = increase
-                prev_valid_values[icu_name][col] = {
+                prev_cum_vals[icu_name][col] = {
                   'value': candidate,
                   'date': date,
                 }
