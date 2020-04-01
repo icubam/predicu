@@ -67,7 +67,7 @@ def load_all_data(icubam_bedcount_path, pre_icubam_path):
   return pd.concat([pre_icubam, icubam])
 
 
-def load_pre_icubam_data(pre_icubam_path):
+def load_pre_icubam_data(pre_icubam_path, clean=True):
   d = load_data_file(pre_icubam_path)
   d = d.rename(
     columns={
@@ -93,14 +93,15 @@ def load_pre_icubam_data(pre_icubam_path):
   ]
   for col in missing_columns:
     d[col] = 0
-  return get_clean_daily_values(d[ALL_COLUMNS + ["datetime"]])
+  d = d[ALL_COLUMNS + ['datetime']]
+  return get_clean_daily_values(d) if clean else d
 
-
-def load_icubam_data(icubam_bedcount_path):
+def load_icubam_data(icubam_bedcount_path, clean=True):
   d = load_data_file(icubam_bedcount_path)
   d = d.assign(datetime=pd.to_datetime(d.date))
   d = d.assign(date=d.datetime.dt.date)
-  return get_clean_daily_values(d[ALL_COLUMNS + ["datetime"]])
+  d = d[ALL_COLUMNS + ['datetime']]
+  return get_clean_daily_values(d) if clean else d
 
 
 def get_clean_daily_values(d):
