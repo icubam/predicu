@@ -11,7 +11,7 @@ CUM_COLUMNS = [
   "n_covid_healed",
 ]
 
-ALL_COLUMNS = ["icu_name", "date", "datetime"] + CUM_COLUMNS
+ALL_COLUMNS = ["icu_name", "date"] + CUM_COLUMNS
 
 
 def load_data_file(data_path):
@@ -29,10 +29,18 @@ def load_data_file(data_path):
 
 
 def load_all_data(icubam_bedcount_path, pre_icubam_path):
-  return pd.concat([
-    load_pre_icubam_data(pre_icubam_path),
-    load_icubam_bedcount_data(icubam_bedcount_path),
-  ])
+  d = load_pre_icubam_data(pre_icubam_path)
+  d2 = load_icubam_bedcount_data(icubam_bedcount_path)
+  fix_same_icu = {
+    'CHR-SSPI': 'CHR-Thionville',
+    'CHR-CCV': 'CHR-Thionville',
+    'Nancy-NC': 'Nancy-RCP'
+  }
+  for old_icu_name, new_icu_name in fix_same_icu.items():
+    d.loc[d.icu_name == old_icu_name, 'icu_name'] = new_icu_name
+  d = d.groupby(['date', 'icu_name']).sum().reset_index()
+  d = d.sort_values(by=['icu_name', 'date'])
+  return pd.concat([d, load_icubam_bedcount_data(icubam_bedcount_path)])
 
 
 def load_pre_icubam_data(pre_icubam_path):
@@ -51,21 +59,19 @@ def load_pre_icubam_data(pre_icubam_path):
     "C-Scweitzer": "C-Schweitzer",
     "Bezannes": "C-Bezannes",
     "NHC-Chir": "NHC-ChirC",
-    "CHR-SSPI": "CHR-Thionville",
-    "CHR-CCV": "CHR-Thionville",
   }
   for wrong_name, fixed_name in fix_icu_names.items():
     d.loc[d.icu_name == wrong_name, "icu_name"] = fixed_name
   d = d.assign(datetime=pd.to_datetime(d.date))
   d = d.assign(date=d.datetime.dt.date)
-  return get_clean_daily_values(d[ALL_COLUMNS])
+  return get_clean_daily_values(d[ALL_COLUMNS + ['datetime']])
 
 
 def load_icubam_bedcount_data(icubam_bedcount_path):
   d = load_data_file(icubam_bedcount_path)
   d = d.assign(datetime=pd.to_datetime(d.date))
   d = d.assign(date=d.datetime.dt.date)
-  return get_clean_daily_values(d[ALL_COLUMNS])
+  return get_clean_daily_values(d[ALL_COLUMNS + ['datetime']])
 
 
 def get_clean_daily_values(d):
