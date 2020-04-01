@@ -1,11 +1,11 @@
 from predicu.data import (
-  load_all_data, load_icubam_bedcount_data, load_pre_icubam_data
+  load_all_data, load_icubam_data, load_pre_icubam_data
 )
 
 pre_icubam_path = 'data/pre_icubam_data.csv'
 pre_icubam = load_pre_icubam_data(pre_icubam_path)
 icubam_bedcount_path = 'data/bedcount_2020-03-31.pickle'
-icubam = load_icubam_bedcount_data(icubam_bedcount_path)
+icubam = load_icubam_data(icubam_bedcount_path)
 combined = load_all_data(icubam_bedcount_path, pre_icubam_path)
 
 pre_icubam_icu_names = set(pre_icubam.icu_name.unique())
