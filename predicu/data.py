@@ -6,9 +6,12 @@ import pandas as pd
 
 CUM_COLUMNS = [
   "n_covid_free",
+  "n_ncovid_free",
   "n_covid_occ",
   "n_covid_deaths",
   "n_covid_healed",
+  "n_covid_transfered",
+  "n_covid_refused",
 ]
 
 ALL_COLUMNS = ["icu_name", "date"] + CUM_COLUMNS
@@ -32,14 +35,14 @@ def load_all_data(icubam_bedcount_path, pre_icubam_path):
   d = load_pre_icubam_data(pre_icubam_path)
   d2 = load_icubam_bedcount_data(icubam_bedcount_path)
   fix_same_icu = {
-    'CHR-SSPI': 'CHR-Thionville',
-    'CHR-CCV': 'CHR-Thionville',
-    'Nancy-NC': 'Nancy-RCP'
+    "CHR-SSPI": "CHR-Thionville",
+    "CHR-CCV": "CHR-Thionville",
+    "Nancy-NC": "Nancy-RCP"
   }
   for old_icu_name, new_icu_name in fix_same_icu.items():
-    d.loc[d.icu_name == old_icu_name, 'icu_name'] = new_icu_name
-  d = d.groupby(['date', 'icu_name']).sum().reset_index()
-  d = d.sort_values(by=['icu_name', 'date'])
+    d.loc[d.icu_name == old_icu_name, "icu_name"] = new_icu_name
+  d = d.groupby(["date", "icu_name"]).sum().reset_index()
+  d = d.sort_values(by=["icu_name", "date"])
   return pd.concat([d, load_icubam_bedcount_data(icubam_bedcount_path)])
 
 
@@ -64,22 +67,30 @@ def load_pre_icubam_data(pre_icubam_path):
     d.loc[d.icu_name == wrong_name, "icu_name"] = fixed_name
   d = d.assign(datetime=pd.to_datetime(d.date))
   d = d.assign(date=d.datetime.dt.date)
-  return get_clean_daily_values(d[ALL_COLUMNS + ['datetime']])
+  missing_columns = [
+    "n_ncovid_free", "n_covid_transfered", "n_covid_refused", "n_ncodiv_free"
+  ]
+  for col in missing_columns:
+    d[col] = 0
+  return get_clean_daily_values(d[ALL_COLUMNS + ["datetime"]])
 
 
 def load_icubam_bedcount_data(icubam_bedcount_path):
   d = load_data_file(icubam_bedcount_path)
   d = d.assign(datetime=pd.to_datetime(d.date))
   d = d.assign(date=d.datetime.dt.date)
-  return get_clean_daily_values(d[ALL_COLUMNS + ['datetime']])
+  return get_clean_daily_values(d[ALL_COLUMNS + ["datetime"]])
 
 
 def get_clean_daily_values(d):
   max_day_increase = {
-    "n_covid_free": 5,
+    "n_covid_free": 20,
+    "n_ncovid_free": 20,
     "n_covid_occ": 20,
     "n_covid_deaths": 5,
     "n_covid_healed": 5,
+    "n_covid_transfered": 20,
+    "n_covid_refused": 200,
   }
   clean_data_points = list()
   per_icu_prev_data_point = dict()
@@ -97,7 +108,7 @@ def get_clean_daily_values(d):
       else:
         for col in CUM_COLUMNS:
           for candidate in reversed(list(sd[col])):
-            if candidate > prev_data_point[col]:
+            if candidate >= prev_data_point[col]:
               increase = candidate - prev_data_point[col]
               if increase <= max_day_increase[col]:
                 new_data_point[col] = increase
