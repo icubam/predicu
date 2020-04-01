@@ -32,18 +32,21 @@ def load_data_file(data_path):
 
 
 def load_all_data(icubam_bedcount_path, pre_icubam_path):
-  d = load_pre_icubam_data(pre_icubam_path)
-  d2 = load_icubam_bedcount_data(icubam_bedcount_path)
+  pre_icubam = load_pre_icubam_data(pre_icubam_path)
   fix_same_icu = {
     "CHR-SSPI": "CHR-Thionville",
     "CHR-CCV": "CHR-Thionville",
     "Nancy-NC": "Nancy-RCP"
   }
   for old_icu_name, new_icu_name in fix_same_icu.items():
-    d.loc[d.icu_name == old_icu_name, "icu_name"] = new_icu_name
-  d = d.groupby(["date", "icu_name"]).sum().reset_index()
-  d = d.sort_values(by=["icu_name", "date"])
-  return pd.concat([d, load_icubam_bedcount_data(icubam_bedcount_path)])
+    pre_icubam.loc[pre_icubam.icu_name == old_icu_name,
+                   "icu_name"] = new_icu_name
+  pre_icubam = pre_icubam.groupby(["date", "icu_name"]).sum().reset_index()
+  pre_icubam = pre_icubam.sort_values(by=["icu_name", "date"])
+  icubam = load_icubam_data(icubam_bedcount_path)
+  dates_in_both = set(icubam.date.unique()) & set(pre_icubam.date.unique())
+  pre_icubam = pre_icubam.loc[~pre_icubam.date.isin(dates_in_both)]
+  return pd.concat([pre_icubam, load_icubam_data(icubam_bedcount_path)])
 
 
 def load_pre_icubam_data(pre_icubam_path):
@@ -75,7 +78,7 @@ def load_pre_icubam_data(pre_icubam_path):
   return get_clean_daily_values(d[ALL_COLUMNS + ["datetime"]])
 
 
-def load_icubam_bedcount_data(icubam_bedcount_path):
+def load_icubam_data(icubam_bedcount_path):
   d = load_data_file(icubam_bedcount_path)
   d = d.assign(datetime=pd.to_datetime(d.date))
   d = d.assign(date=d.datetime.dt.date)
