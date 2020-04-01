@@ -16,6 +16,16 @@ CUM_COLUMNS = [
 
 ALL_COLUMNS = ["icu_name", "date"] + CUM_COLUMNS
 
+MAX_DAY_INCREASE = {
+  "n_covid_free": 20,
+  "n_ncovid_free": 20,
+  "n_covid_occ": 20,
+  "n_covid_deaths": 5,
+  "n_covid_healed": 5,
+  "n_covid_transfered": 20,
+  "n_covid_refused": 200,
+}
+
 
 def load_data_file(data_path):
   ext = data_path.rsplit(".", 1)[-1]
@@ -38,15 +48,23 @@ def load_all_data(icubam_bedcount_path, pre_icubam_path):
     "CHR-CCV": "CHR-Thionville",
     "Nancy-NC": "Nancy-RCP"
   }
-  for old_icu_name, new_icu_name in fix_same_icu.items():
-    pre_icubam.loc[pre_icubam.icu_name == old_icu_name,
-                   "icu_name"] = new_icu_name
+  for old, new in fix_same_icu.items():
+    pre_icubam.loc[pre_icubam.icu_name == old, "icu_name"] = new
   pre_icubam = pre_icubam.groupby(["date", "icu_name"]).sum().reset_index()
   pre_icubam = pre_icubam.sort_values(by=["icu_name", "date"])
   icubam = load_icubam_data(icubam_bedcount_path)
   dates_in_both = set(icubam.date.unique()) & set(pre_icubam.date.unique())
   pre_icubam = pre_icubam.loc[~pre_icubam.date.isin(dates_in_both)]
-  return pd.concat([pre_icubam, load_icubam_data(icubam_bedcount_path)])
+  first_icubam_date = icubam.date.min()
+  last_pre_icubam_date = pre_icubam.date.max()
+  for icu_name in icubam.icu_name.unique():
+    first_mask = (icubam.date == first_icubam_date) & (icu_name == icu_name)
+    last_mask = \
+      (pre_icubam.date == last_pre_icubam_date) & \
+      (pre_icubam.icu_name == icu_name)
+    for col in CUM_COLUMNS:
+      icubam.loc[first_mask, col] -= pre_icubam.loc[last_mask, col]
+  return pd.concat([pre_icubam, icubam])
 
 
 def load_pre_icubam_data(pre_icubam_path):
@@ -86,35 +104,38 @@ def load_icubam_data(icubam_bedcount_path):
 
 
 def get_clean_daily_values(d):
-  max_day_increase = {
-    "n_covid_free": 20,
-    "n_ncovid_free": 20,
-    "n_covid_occ": 20,
-    "n_covid_deaths": 5,
-    "n_covid_healed": 5,
-    "n_covid_transfered": 20,
-    "n_covid_refused": 200,
-  }
-  clean_data_points = list()
-  per_icu_prev_data_point = dict()
   dates = sorted(list(d.date.unique()))
   icu_names = sorted(list(d.icu_name.unique()))
+  clean_data_points = list()
+  prev_valid_values = {i: {c: None for c in CUM_COLUMNS} for i in icu_names}
+  per_icu_prev_data_point = dict()
   for date, icu_name in itertools.product(dates, icu_names):
     new_data_point = {"date": date, "icu_name": icu_name}
     new_data_point.update({col: 0 for col in CUM_COLUMNS})
     sd = d.loc[(d.date == date) & (d.icu_name == icu_name)]
     if len(sd) > 0:
       sd = sd.sort_values(by="datetime")
-      prev_data_point = per_icu_prev_data_point.get(icu_name, None)
-      if prev_data_point is None:
-        new_data_point.update({col: sd[col].iloc[-1] for col in CUM_COLUMNS})
-      else:
-        for col in CUM_COLUMNS:
+      for col in CUM_COLUMNS:
+        if prev_valid_values[icu_name][col] is None:
+          new_data_point[col] = sd[col].iloc[-1]
+          prev_valid_values[icu_name][col] = {
+            'value': sd[col].iloc[-1],
+            'date': date,
+          }
+        else:
+          prev_valid_value = prev_valid_values[icu_name][col]['value']
+          prev_valid_date = prev_valid_values[icu_name][col]['date']
+          n_days_since_prev_valid = (date - prev_valid_date).days
+          max_increase = n_days_since_prev_valid * MAX_DAY_INCREASE[col]
           for candidate in reversed(list(sd[col])):
-            if candidate >= prev_data_point[col]:
-              increase = candidate - prev_data_point[col]
-              if increase <= max_day_increase[col]:
+            if candidate >= prev_valid_value:
+              increase = candidate - prev_valid_value
+              if increase <= max_increase:
                 new_data_point[col] = increase
+                prev_valid_values[icu_name][col] = {
+                  'value': candidate,
+                  'date': date,
+                }
                 break
     clean_data_points.append(new_data_point)
     per_icu_prev_data_point[icu_name] = new_data_point
