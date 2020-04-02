@@ -83,20 +83,39 @@ def load_icubam_data(icubam_bedcount_path, clean=True):
 
 
 def format_data(d, clean):
-  d = d.assign(datetime=pd.to_datetime(d.date))
-  d = d.assign(date=d.datetime.dt.date)
+  d['datetime'] = pd.to_datetime(d.date)
+  d['date'] = d['datetime'].dt.date
+  icu_name_to_department = load_icu_name_to_department()
+  d['department'] = d.icu_name.apply(icu_name_to_department.get)
+  d = d[ALL_COLUMNS + ['datetime']]
+  d = aggregate_multiple_inputs(d)
   columns = ALL_COLUMNS
   if clean:
     d = get_clean_daily_values(d)
   else:
     columns.append('datetime')
-  icu_name_to_department = load_icu_name_to_department()
-  d['department'] = d.icu_name.apply(icu_name_to_department.get)
   d = d[columns]
   return d
 
 
+def aggregate_multiple_inputs(d):
+  agg = {col: 'max' for col in CUM_COLUMNS}
+  agg.update({col: 'last' for col in ALL_COLUMNS if col not in CUM_COLUMNS})
+  res_dfs = []
+  for (icu_name, date), dg in d.groupby(['icu_name', 'date']):
+    res_dfs.append(
+      dg \
+      .set_index('datetime') \
+      .groupby(pd.Grouper(freq='15Min')) \
+      .agg(agg) \
+      .dropna() \
+      .reset_index()
+    )
+  return pd.concat(res_dfs)
+
+
 def get_clean_daily_values(d):
+  icu_name_to_department = load_icu_name_to_department()
   dates = sorted(list(d.date.unique()))
   icu_names = sorted(list(d.icu_name.unique()))
   clean_data_points = list()
@@ -105,7 +124,11 @@ def get_clean_daily_values(d):
   per_icu_prev_data_point = dict()
   for date, icu_name in itertools.product(dates, icu_names):
     sd = d.loc[(d.date == date) & (d.icu_name == icu_name)]
-    new_data_point = {"date": date, "icu_name": icu_name}
+    new_data_point = {
+      "date": date,
+      "icu_name": icu_name,
+      'department': icu_name_to_department[icu_name]
+    }
     new_data_point.update({col: 0 for col in CUM_COLUMNS})
     new_data_point.update({col: 0 for col in NCUM_COLUMNS})
     if icu_name in prev_ncum_vals:
