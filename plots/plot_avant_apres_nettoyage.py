@@ -8,10 +8,10 @@ import matplotlib.pyplot as plt
 import matplotlib.style
 #import seaborn as sns
 
-from predicu.data import load_all_data
-from predicu.data import get_clean_daily_values
-from predicu.data import load_icubam_data
-
+# from predicu.data import load_all_data
+# from predicu.data import get_clean_daily_values
+# from predicu.data import load_icubam_data
+import predicu.data
 
 matplotlib.style.use('seaborn-whitegrid')
 
@@ -21,37 +21,10 @@ icubam_bedcount_path = 'data/bedcount_2020-03-31.pickle'
 pre_icubam_path = 'data/pre_icubam_data.csv'
 
 ## pre-ICUbam: clean a la main par Antoine, il me semble ?
-# data = load_all_data(
+# data = predicu.data.load_all_data(
 #   icubam_bedcount_path=icubam_bedcount_path, pre_icubam_path=pre_icubam_path
 # )
-# cleanData = get_clean_daily_values(data)
-
-CUM_COLUMNS = [
-  "n_covid_deaths",
-  "n_covid_healed",
-  "n_covid_transfered",
-  "n_covid_refused",
-]
-NCUM_COLUMNS = [
-  "n_covid_free",
-  "n_ncovid_free",
-  "n_covid_occ",
-]
-ALL_COLUMNS = ["icu_name", "date"] + CUM_COLUMNS + NCUM_COLUMNS
-
-MAX_DAY_INCREASE = {
-    "n_covid_free": 20,
-    "n_ncovid_free": 20,
-    "n_covid_occ": 20,
-    "n_covid_deaths": 5,
-    "n_covid_healed": 5,
-    "n_covid_transfered": 20,
-    "n_covid_refused": 200,
-  }
-
-bc = load_icubam_data(icubam_bedcount_path)
-bc["datetime"]=pd.to_datetime(bc["date"])
-## pandas 2 numpy
+# cleanData = predicu.data.get_clean_daily_values(data)
 def pd_2_np(bc):
     bc.sort_values(by=['icu_name', 'date'], inplace = True)
     ICUs = bc["icu_name"]
@@ -104,6 +77,8 @@ def np_2_pd(np_bc):
             aux_icu+=1
     return pd.DataFrame(pandas_frame)
 
+
+
 # plots avant/apres pour validation facile (visuelle, idealement en faisant defiler
 # des .png depuis un visionneur d'images) par un expert (medecin)
 def plot_compare_2_dataBases(bc_origin, bc_corrected,plot_also_instant_values=True, suffixe=""):
@@ -153,19 +128,19 @@ def plot_compare_2_dataBases(bc_origin, bc_corrected,plot_also_instant_values=Tr
             #     colName = columnNames[col_num]
             #     plt.plot(times[ICUmask],bc_origin[colName][ICUmask] , label=colName ,lw=2, marker='o')
             # plt.legend()
-            n_entrants = bc["n_covid_occ"][ICUmask] +bc["n_covid_deaths"][ICUmask] +bc["n_covid_healed"][ICUmask] +bc["n_covid_transfered"][ICUmask]
+            n_entrants = bc_origin["n_covid_occ"][ICUmask] +bc_origin["n_covid_deaths"][ICUmask] +bc_origin["n_covid_healed"][ICUmask] +bc_origin["n_covid_transfered"][ICUmask]
             n_entrants = n_entrants.diff(1)
-            n_demandants = bc["n_covid_occ"][ICUmask] +bc["n_covid_deaths"][ICUmask] +bc["n_covid_healed"][ICUmask] +bc["n_covid_transfered"][ICUmask]+bc["n_covid_refused"][ICUmask]
+            n_demandants = bc_origin["n_covid_occ"][ICUmask] +bc_origin["n_covid_deaths"][ICUmask] +bc_origin["n_covid_healed"][ICUmask] +bc_origin["n_covid_transfered"][ICUmask]+bc_origin["n_covid_refused"][ICUmask]
             n_demandants = n_entrants.diff(1)
-            plt.plot(times[ICUmask],bc["n_covid_occ"][ICUmask] + bc["n_covid_free"][ICUmask] , label='lits covid - total' , lw=2, marker='o')
-            plt.plot(times[ICUmask],n_entrants             , label='total entrants' , lw=2, marker='o')
-            plt.plot(times[ICUmask],n_demandants  , label="pression a l'entree" , lw=2, marker='o')
-            plt.plot(times[ICUmask],bc["n_covid_free"][ICUmask] , label="lits covid dispos" , lw=2, marker='o')
+            plt.plot(times[ICUmask],bc_origin["n_covid_occ"][ICUmask] + bc_origin["n_covid_free"][ICUmask] , label='lits covid - total' , lw=2, marker='o', color= "green")
+            plt.plot(times[ICUmask],bc_origin["n_covid_free"][ICUmask] , label="lits covid dispos" , lw=2, marker='o', color= "red")
+            plt.plot(times[ICUmask],n_entrants             , label='total entrants' , lw=2, marker='o', color= "purple")
+            plt.plot(times[ICUmask],n_demandants  , label="pression a l'entree" , lw=2, marker='o', color= "black")
             # for col_num in range(1,3):
             #     colName = columnNames[col_num]
-            #     plt.plot(times[ICUmask],bc[colName][ICUmask] , label=colName , lw=2, marker='o')
+            #     plt.plot(times[ICUmask],bc_origin[colName][ICUmask] , label=colName , lw=2, marker='o')
             plt.legend()
-            plt.ylim([-0.5,40])
+            plt.ylim([-5,40])
             plt.xlabel("jours (depuis 17 mars)") # depuis 17 mars
 
 
@@ -176,12 +151,12 @@ def plot_compare_2_dataBases(bc_origin, bc_corrected,plot_also_instant_values=Tr
             n_entrants = n_entrants.diff(1)
             n_demandants = bc_corrected["n_covid_occ"][ICUmaskCorr] +bc_corrected["n_covid_deaths"][ICUmaskCorr] +bc_corrected["n_covid_healed"][ICUmaskCorr] +bc_corrected["n_covid_transfered"][ICUmaskCorr]+bc_corrected["n_covid_refused"][ICUmaskCorr]
             n_demandants = n_entrants.diff(1)
-            plt.plot(timesCorr[ICUmaskCorr],bc_corrected["n_covid_occ"][ICUmaskCorr] + bc_corrected["n_covid_free"][ICUmaskCorr] , label='lits covid - total' , lw=2, marker='o')
-            plt.plot(timesCorr[ICUmaskCorr],n_entrants             , label='total entrants' , lw=2, marker='o')
-            plt.plot(timesCorr[ICUmaskCorr],n_demandants  , label="pression a l'entree" , lw=2, marker='o')
-            plt.plot(timesCorr[ICUmaskCorr],bc_corrected["n_covid_free"][ICUmaskCorr] , label="lits covid dispos" , lw=2, marker='o')
+            plt.plot(timesCorr[ICUmaskCorr],bc_corrected["n_covid_occ"][ICUmaskCorr] + bc_corrected["n_covid_free"][ICUmaskCorr] , label='lits covid - total' , lw=2, marker='o', color= "green")
+            plt.plot(timesCorr[ICUmaskCorr],bc_corrected["n_covid_free"][ICUmaskCorr] , label="lits covid dispos" , lw=2, marker='o', color= "red")
+            plt.plot(timesCorr[ICUmaskCorr],n_entrants             , label='total entrants' , lw=2, marker='o', color= "purple")
+            plt.plot(timesCorr[ICUmaskCorr],n_demandants  , label="pression a l'entree" , lw=2, marker='o', color= "black")
             plt.legend()
-            plt.ylim([-0.5,40])
+            plt.ylim([-5,40])
             plt.xlabel("jours (depuis 17 mars)") # depuis 17 mars
 
             # n_respi_total = bc_corrected["n_covid_occ"][ICUmaskCorr] + bc_corrected["n_covid_free"][ICUmaskCorr]
@@ -193,13 +168,14 @@ def plot_compare_2_dataBases(bc_origin, bc_corrected,plot_also_instant_values=Tr
 
             maxVals = np.zeros(4) # pour mettre le meme axe des y, pour fciliter la lecture
             ## plots des valeurs cumulatives
+            color = ["b","b","b","black","green","red", "blue"]
 
             ## before correction
             plt.subplot(2, 2, 3)
             plt.title(icu+ " avant correction")
             for col_num in range(3,7):
                 colName = columnNames[col_num]
-                plt.plot(times[ICUmask],bc_origin[colName][ICUmask] , label=colName ,lw=2, marker='o')
+                plt.plot(times[ICUmask],bc_origin[colName][ICUmask] , label=colName ,lw=2, marker='o', color= color[col_num])
                 maxVals[col_num-3] = max(maxVals[col_num-3], np.max(bc_origin[colName][ICUmask]))
                 maxVals[col_num-3] = max(maxVals[col_num-3], np.max(bc_corrected[colName][ICUmaskCorr]))
             plt.ylim([-0.5, np.max(maxVals)+0.5])
@@ -209,7 +185,7 @@ def plot_compare_2_dataBases(bc_origin, bc_corrected,plot_also_instant_values=Tr
             plt.title(icu+ " apres correction")
             for col_num in range(3,7):
                 colName = columnNames[col_num]
-                plt.plot(timesCorr[ICUmaskCorr],bc_corrected[colName][ICUmaskCorr] , label=colName ,lw=2, marker='o')
+                plt.plot(timesCorr[ICUmaskCorr],bc_corrected[colName][ICUmaskCorr] , label=colName ,lw=2, marker='o', color= color[col_num])
             plt.legend()
             plt.ylim([-0.5, np.max(maxVals)+0.5])
 
@@ -224,101 +200,6 @@ def plot_compare_2_dataBases(bc_origin, bc_corrected,plot_also_instant_values=Tr
 
 
 
-## 'fusionne' les donnees lorsque 2 saisies sont tres proches dans le temps
-def aggregate_multiple_inputs(d):
-    agg = {col: 'max' for col in CUM_COLUMNS}
-    agg.update({col: 'last' for col in ALL_COLUMNS if col not in CUM_COLUMNS}) ## TODO: supprimer ca ?
-    res_dfs = []
-    for (icu_name, date), dg in d.groupby(['icu_name', 'date']):
-        res_dfs.append(
-          dg.set_index('datetime').groupby(
-            pd.Grouper(freq='15Min')
-          ).agg(agg).dropna().reset_index()
-        )
-    return pd.concat(res_dfs)
-
-
-## 'fusionne' les donnees lorsque 2 saisies sont tres proches dans le temps
-def fusion_saisies_tres_rapprochees(bc, deltatmax_secondes):
-    deltatmax_secondes_np_timedeltat64 = np.timedelta64(deltatmax_secondes,'s') # datetime.timedelta(days=0,seconds=3600)
-    nBcorrection = 0
-
-    np_bc = pd_2_np(bc)
-    ICUs = np_bc[0]
-    datetimes = np_bc[1]
-    np_values_7_cols = np_bc[2]
-    Ndata = datetimes.shape[0]
-
-    indices_a_eliminer = []
-    for icu_num, icu in enumerate(bc["icu_name"].unique()):
-        ICUrange = np.arange(Ndata)[np.array(icu == bc["icu_name"])] ## array des indices (absolus, pour pouvoir corriger) de cet ICU
-        sorting = np.argsort(datetimes[ICUrange])   ## indice interne de l'ordre chronologique
-        ICUrange = ICUrange[sorting] ## range des indices de cet ICU ds le bon ordre
-        for i, index_absolu in enumerate(ICUrange):
-            if i>0: # so that we can compare woth the previous one
-                assert(ICUrange[i] == index_absolu) ## this is a comment
-                deltat = np.timedelta64(datetimes[ICUrange[i]] - datetimes[ICUrange[i-1]] ,'m')
-                ## si 2 saisies en moins de  XX secondes, alors :
-                if deltat < deltatmax_secondes_np_timedeltat64 :
-
-                    ##TODO: se souvenir des indices a enlever (ou a garder) + les uppriemr a la fin
-                    if np.array_equal(np_values_7_cols[:,ICUrange[i]], np_values_7_cols[:,ICUrange[i-1]]) == False: ## pas de flag si 2 saisies identiques
-                        indices_a_eliminer.append(ICUrange[i-1])
-                        print(icu, deltat)
-                        print(np_values_7_cols[:,ICUrange[i]])
-                        print(np_values_7_cols[:,ICUrange[i-1]])
-                        ## choix par defaut: remplacer les 2 valeurs par le max (colonne par colonne)
-                        np_values_7_cols[:,ICUrange[i]]   = np.maximum(np_values_7_cols[:,ICUrange[i]], np_values_7_cols[:,ICUrange[i-1]])
-                        np_values_7_cols[:,ICUrange[i-1]] = np_values_7_cols[:,ICUrange[i]]
-                        nBcorrection += 1
-
-    print("il y a eu ", nBcorrection,   " corrections, à comparer avec ", bc.shape, "  ou plutot ", bc.shape[0])
-    indices_a_eliminer= np.sort(np.array(indices_a_eliminer).copy())
-    print(indices_a_eliminer)
-
-
-## TODO !! Ici j'ai un souci d'indices, clairement ##
-
-    # ICUs              = ICUs.drop(index= indices_a_eliminer) #               = np.delete(ICUs,             indices_a_eliminer, axis=0)
-    # ICUs = list(ICUs)
-    # for index in sorted(indices_a_eliminer, reverse=True):
-    #     del ICUs[index]
-    # ICUs = pd.DataFrame(ICUs)
-    ICUs = ICUs.drop(labels= indices_a_eliminer, axis=0)
-
-    datetimes         = np.delete(datetimes,          indices_a_eliminer, axis=0)
-    np_values_7_cols  = np.delete(np_values_7_cols[:,], indices_a_eliminer, axis=1)
-
-    # ICUrange = np.delete(ICUrange, indices_a_eliminer)
-    # ICUs              = ICUs[ICUrange] # .drop(index= indices_a_eliminer) #               = np.delete(ICUs,             indices_a_eliminer, axis=0)
-    # datetimes         = datetimes[ICUrange]
-    # np_values_7_cols  = np_values_7_cols[:,ICUrange]
-
-    np_bc = [ICUs, datetimes, np_values_7_cols]
-    bc_fusionnee = np_2_pd(np_bc)
-    return bc_fusionnee
-
-def fix_noncum_inputs(d, n_noncum_error_threshold=0):
-  res_dfs = []
-  non_cum_icus = dict()
-  for col in CUM_COLUMNS:
-    non_cum_icus[col] = {
-      icu_name for icu_name in d.icu_name.unique()
-      if (
-        d.loc[d.icu_name == icu_name] \
-        .set_index('datetime') \
-        .sort_index()[col] \
-        .diff(1) < 0 \
-      ).sum() > n_noncum_error_threshold
-    }
-  for icu_name, dg in d.groupby('icu_name'):
-    dg = dg.reset_index().sort_values(by='datetime')
-    for col in non_cum_icus:
-      if icu_name in non_cum_icus[col]:
-        dg.loc[dg[col] > MAX_DAY_INCREASE[col], col] = 0
-        dg[col] = dg[col].cumsum()
-    res_dfs.append(dg)
-  return pd.concat(res_dfs)
 
 def make_cumulative_the_records_that_should_be(bc_fusionnee, TOLERANCE_NB_ERREURS = 0):
     np_bc = pd_2_np(bc_fusionnee)
@@ -355,7 +236,7 @@ def make_cumulative_the_records_that_should_be(bc_fusionnee, TOLERANCE_NB_ERREUR
             valeurs = np_values_7_cols[col_num][ICUrange].copy()
             differentiel  = np.diff(valeurs)
             # if (differentiel <= 0).mean() > 0.20 : ## si il n'y a pas de croissance pour au moions 20% des updates, c'est louche !
-            if (differentiel <0).sum()> TOLERANCE_NB_ERREURS: # si il y a plus de une update decroissante: pas bon !
+            if (differentiel <-2).sum()> TOLERANCE_NB_ERREURS: # si il y a plus de une update decroissante: pas bon !
 
                 # si la derniere valeur est elevee, c'est p-e bien une cumulative qd meme ?
                 # if valeurs[-1] >= max_day_increase[col_num]*total_recording_interval :
@@ -402,34 +283,52 @@ def make_cumulative_the_records_that_should_be(bc_fusionnee, TOLERANCE_NB_ERREUR
     bc_corrected = pd.DataFrame(clean_data_points)
     return bc_corrected
 
+
+bc_raw = predicu.data.load_icubam_data(icubam_bedcount_path)
+bc_raw["datetime"]=pd.to_datetime(bc_raw["date"])
+## pandas 2 numpy
+
+
 debug_mode = 0
-full_plots = 0
+full_plots = 1
 
-bc_fusionnee = aggregate_multiple_inputs(bc)
+bc_fusionnee = predicu.data.aggregate_multiple_inputs(bc_raw)
 if full_plots :
-    plot_compare_2_dataBases(bc, bc_fusionnee, False , "fusionnee") ## 37 "erreurs" sur 39 ICUs
+    plot_compare_2_dataBases(bc_raw, bc_fusionnee, False , "fusionnee") ## 37 "erreurs" sur 39 ICUs
 
 
-bc_origin = np_2_pd( pd_2_np(bc) ) # en effet, ma conversion change l'ordre des data (sans changer les data elles meme)
+# bc_origin = np_2_pd( pd_2_np(bc_raw) ) # en effet, ma conversion change l'ordre des data (sans changer les data elles meme)
 if debug_mode :
-    plot_compare_2_dataBases(bc, bc_origin, False, "test--origin")## -> ne plot rien ! :D parfait.
+    # plot_compare_2_dataBases(bc_raw, bc_origin, False, "test--origin")## -> ne plot rien ! :D parfait.
     deltatmax_secondes = 900 # 15 minutes
     print("ce code la est casse, mais peu importe, la version de valentin fonctionne")
-    bc_fusionnee1 = fusion_saisies_tres_rapprochees(bc_origin, deltatmax_secondes) ## BROKEN !!
-    plot_compare_2_dataBases(bc_origin    , bc_fusionnee1, False , "test--fusionnee1=broken")
+    bc_fusionnee1 = fusion_saisies_tres_rapprochees(bc_raw, deltatmax_secondes) ## BROKEN !!
+    plot_compare_2_dataBases(bc_raw    , bc_fusionnee1, False , "test--fusionnee1=broken")
 
-bc_corrected0 = fix_noncum_inputs(bc_fusionnee, 0)
-# bc_corrected1 = fix_noncum_inputs(bc_fusionnee, 1)
-# bc_corrected2 = fix_noncum_inputs(bc_fusionnee, 2)
-bc_corrected0Origina = make_cumulative_the_records_that_should_be(bc_fusionnee, 0)
-# bc_corrected1Origina = make_cumulative_the_records_that_should_be(bc_fusionnee, 1)
-# bc_corrected2Origina = make_cumulative_the_records_that_should_be(bc_fusionnee, 2)
-plot_compare_2_dataBases(bc_fusionnee, bc_corrected0, False, "fusion-vs-corrigee-tolerance=0") ## 20 sorties
-if full_plots :
-    plot_compare_2_dataBases(bc_fusionnee, bc_corrected1Origina, False, "fusion-vs-corrigee-tolerance=1") ## ->  5 sorties
-    plot_compare_2_dataBases(bc_fusionnee, bc_corrected2Origina, False, "fusion-vs-corrigee-tolerance=2") #-> seul gentilly sort
-# if debug_mode:
-plot_compare_2_dataBases(bc_corrected0Origina, bc_corrected0, True , "test--corrigee_tol=0-vs-Valentin_tol=0") ## -> ne plot rien ! :D parfait.
+
+bc_corrected0Original = make_cumulative_the_records_that_should_be(bc_fusionnee, 0)
+bc_corrected1Original = make_cumulative_the_records_that_should_be(bc_fusionnee, 1)
+bc_corrected2Original = make_cumulative_the_records_that_should_be(bc_fusionnee, 2)
+plot_compare_2_dataBases(bc_fusionnee, bc_corrected0Original, False, "fusion-vs-corrigeeVersion1-tolerance=0") ## 20 sorties
+plot_compare_2_dataBases(bc_fusionnee, bc_corrected1Original, False, "fusion-vs-corrigeeVersion1-tolerance=1") ## ->  5 sorties
+plot_compare_2_dataBases(bc_fusionnee, bc_corrected2Original, False, "fusion-vs-corrigeeVersion1-tolerance=2") #-> seul gentilly sort
+
+plot_compare_2_dataBases(bc_raw, bc_corrected0Original, False, "brute-vs-corrigee-tolerance=0") #-> seul gentilly sort
+# plot_compare_2_dataBases(bc_raw, bc_corrected1Original, False, "brute-vs-corrigee-tolerance=1") #-> seul gentilly sort
+# plot_compare_2_dataBases(bc_raw, bc_corrected2Original, False, "brute-vs-corrigee-tolerance=2") #-> seul gentilly sort
+
+if debug_mode:
+    bc_corrected0 = predicu.data.fix_noncum_inputs(bc_fusionnee, 0)
+    bc_corrected1 = predicu.data.fix_noncum_inputs(bc_fusionnee, 1)
+    bc_corrected2 = predicu.data.fix_noncum_inputs(bc_fusionnee, 2)
+    # if full_plots :
+    plot_compare_2_dataBases(bc_fusionnee, bc_corrected0, False, "fusion-vs-corrigee-tolerance=0") ## 20 sorties
+    plot_compare_2_dataBases(bc_fusionnee, bc_corrected1, False, "fusion-vs-corrigee-tolerance=1") ## ->  5 sorties
+    plot_compare_2_dataBases(bc_fusionnee, bc_corrected2, False, "fusion-vs-corrigee-tolerance=2") #-> seul gentilly sort
+
+    plot_compare_2_dataBases(bc_corrected0Original, bc_corrected0, True , "test--corrigee_tol=0-vs-Valentin_tol=0") ## -> ne plot rien ! :D parfait.
+    plot_compare_2_dataBases(bc_corrected1Original, bc_corrected1, True , "test--corrigee_tol=1-vs-Valentin_tol=1") ## -> ne plot rien ! :D parfait.
+    plot_compare_2_dataBases(bc_corrected2Original, bc_corrected2, True , "test--corrigee_tol=2-vs-Valentin_tol=2") ## -> ne plot rien ! :D parfait.
 
 if debug_mode:
     ## self-consitency check ##
@@ -441,78 +340,141 @@ if debug_mode:
 if debug_mode:
     ## ce qui suit, ca chie ##
     print("start get_clean_daily_values(bc_corrected)")
-    bc_cleaned0 = get_clean_daily_values(bc_corrected0)
-    plot_compare_2_dataBases(bc_corrected0, bc_cleaned0,  False, "corrige_tol=0-vs-+cleaned")
-    bc_cleaned1 = get_clean_daily_values(bc_corrected1)
-    plot_compare_2_dataBases(bc_corrected1, bc_cleaned1,  False, "corrige_tol=1-vs-+cleaned")
+    bc_cleaned0 = predicu.data.get_clean_daily_values(bc_corrected0Original)
+    plot_compare_2_dataBases(bc_corrected0Original, bc_cleaned0,  False, "corrige_tol=0-vs-+cleaned")
+    bc_cleaned1 = predicu.data.get_clean_daily_values(bc_corrected1Original)
+    plot_compare_2_dataBases(bc_corrected1Original, bc_cleaned1,  False, "corrige_tol=1-vs-+cleaned")
 
 
 
-def plot_each_icu_separately(bc, suffix):
-    pathname = 'figs-ICUs-1-par-1'
-    if not os.path.exists(pathname):
-        os.makedirs(pathname)
 
-    np_bc = pd_2_np(bc)
-    ICUs = np_bc[0]
-    datetimes = np_bc[1]
-    np_values_7_cols = np_bc[2]
-    Ndata = datetimes.shape[0]
-    n_covid_occ, n_covid_free, n_ncovid_free, n_covid_deaths, n_covid_healed, n_covid_refused, n_covid_transfered = np_values_7_cols
-
-    n_respi_total = n_covid_occ + n_covid_free
-    n_avail_beds_total = n_covid_free + n_ncovid_free
+# raise SystemExit
 
 
-    # T0 = np.min(datetimes) # premier record (jour)
-    T0 = np.datetime64('2020-03-17T00:00:00.000000000')
-    times = np.array((bc['datetime']-T0), dtype=float)/86400.0/1.e9
-    # times = bc['datetime']
 
-    columnNames = ["n_covid_occ", "n_covid_free", "n_ncovid_free", "n_covid_deaths", "n_covid_healed", "n_covid_refused", "n_covid_transfered"]
-    columnNamesFR = ["lits covid+ occupes", "lits covid+ libres", "lits non covid libres", "deces covid", "sorties covid", "refusés", "transférés"]
+# def plot_each_icu_separately(bc, suffix):
+#     pathname = 'figs-ICUs-1-par-1'
+#     if not os.path.exists(pathname):
+#         os.makedirs(pathname)
 
-    for icu_num, icu in enumerate(bc["icu_name"].unique()):
-        ICUmask = (icu == bc["icu_name"])
+#     np_bc = pd_2_np(bc)
+#     ICUs = np_bc[0]
+#     datetimes = np_bc[1]
+#     np_values_7_cols = np_bc[2]
+#     Ndata = datetimes.shape[0]
+#     n_covid_occ, n_covid_free, n_ncovid_free, n_covid_deaths, n_covid_healed, n_covid_refused, n_covid_transfered = np_values_7_cols
 
-        plt.figure(icu_num,[10,10])
-        plt.title(icu+" données instantanées")
-
-        n_entrants = bc["n_covid_occ"][ICUmask] +bc["n_covid_occ"][ICUmask]
-
-        plt.subplot(1, 2, 1)
-        plt.plot(times[ICUmask],n_respi_total[ICUmask] , label='total lits covid' , lw=2, marker='o')
-        plt.plot(times[ICUmask],n_entrants[ICUmask] , label='total entrants' , lw=2, marker='o')
-        plt.plot(times[ICUmask],n_demandants[ICUmask] , label='total demandes' , lw=2, marker='o')
-        for col_num in range(1,3):
-            colName = columnNames[col_num]
-            plt.plot(times[ICUmask],bc[colName][ICUmask] , label=colName , lw=2, marker='o')
-        plt.legend()
-        plt.ylim([-0.5,40])
-        plt.xlabel("jours (depuis 17 mars)") # depuis 17 mars
-    #     plt.savefig("figs/n_occ_"+icu+".png")
-        #plt.figure(icu_num*2+1,[10,10])
-
-        # plt.subplot(1, 2, 2)
-        # plt.title(icu+" données cumulatives")
-        # for col_num in range(3, 7):
-        #     colName = columnNames[col_num]
-        #     plt.plot(times[ICUmask],bc[colName][ICUmask] , label=colName , lw=2, marker='o')
-        # plt.legend()
-        # # plt.ylim([-1,15])
-        # plt.xlabel("jours") # depuis 17 mars
-
-        # plt.savefig(pathname+"/"+icu+"_fixedWindow_"+suffix+".png")
-        # plt.close(icu_num)
-
-        if icu_num >3:
-            break
-
-# plot_each_icu_separately(bc_corrected0, "donnees_corrigees_tol=0")
-# plt.show()
-
-raise SystemExit
-
-plot_each_icu_separately(bc, "donnees_brutes")
+#     n_respi_total = n_covid_occ + n_covid_free
+#     n_avail_beds_total = n_covid_free + n_ncovid_free
 
 
+#     # T0 = np.min(datetimes) # premier record (jour)
+#     T0 = np.datetime64('2020-03-17T00:00:00.000000000')
+#     times = np.array((bc['datetime']-T0), dtype=float)/86400.0/1.e9
+#     # times = bc['datetime']
+
+#     columnNames = ["n_covid_occ", "n_covid_free", "n_ncovid_free", "n_covid_deaths", "n_covid_healed", "n_covid_refused", "n_covid_transfered"]
+#     columnNamesFR = ["lits covid+ occupes", "lits covid+ libres", "lits non covid libres", "deces covid", "sorties covid", "refusés", "transférés"]
+
+#     for icu_num, icu in enumerate(bc["icu_name"].unique()):
+#         ICUmask = (icu == bc["icu_name"])
+
+#         plt.figure(icu_num,[10,10])
+#         plt.title(icu+" données instantanées")
+
+#         n_entrants = bc["n_covid_occ"][ICUmask] +bc["n_covid_occ"][ICUmask]
+
+#         plt.subplot(1, 2, 1)
+#         plt.plot(times[ICUmask],n_respi_total[ICUmask] , label='total lits covid' , lw=2, marker='o')
+#         plt.plot(times[ICUmask],n_entrants[ICUmask] , label='total entrants' , lw=2, marker='o')
+#         plt.plot(times[ICUmask],n_demandants[ICUmask] , label='total demandes' , lw=2, marker='o')
+#         for col_num in range(1,3):
+#             colName = columnNames[col_num]
+#             plt.plot(times[ICUmask],bc[colName][ICUmask] , label=colName , lw=2, marker='o')
+#         plt.legend()
+#         plt.ylim([-0.5,40])
+#         plt.xlabel("jours (depuis 17 mars)") # depuis 17 mars
+#     #     plt.savefig("figs/n_occ_"+icu+".png")
+#         #plt.figure(icu_num*2+1,[10,10])
+
+#         # plt.subplot(1, 2, 2)
+#         # plt.title(icu+" données cumulatives")
+#         # for col_num in range(3, 7):
+#         #     colName = columnNames[col_num]
+#         #     plt.plot(times[ICUmask],bc[colName][ICUmask] , label=colName , lw=2, marker='o')
+#         # plt.legend()
+#         # # plt.ylim([-1,15])
+#         # plt.xlabel("jours") # depuis 17 mars
+
+#         # plt.savefig(pathname+"/"+icu+"_fixedWindow_"+suffix+".png")
+#         # plt.close(icu_num)
+
+#         if icu_num >3:
+#             break
+
+# # plot_each_icu_separately(bc_corrected0, "donnees_corrigees_tol=0")
+# # plt.show()
+
+# plot_each_icu_separately(bc, "donnees_brutes")
+
+
+
+# ## 'fusionne' les donnees lorsque 2 saisies sont tres proches dans le temps
+# def fusion_saisies_tres_rapprochees(bc, deltatmax_secondes):
+#     deltatmax_secondes_np_timedeltat64 = np.timedelta64(deltatmax_secondes,'s') # datetime.timedelta(days=0,seconds=3600)
+#     nBcorrection = 0
+
+#     np_bc = pd_2_np(bc)
+#     ICUs = np_bc[0]
+#     datetimes = np_bc[1]
+#     np_values_7_cols = np_bc[2]
+#     Ndata = datetimes.shape[0]
+
+#     indices_a_eliminer = []
+#     for icu_num, icu in enumerate(bc["icu_name"].unique()):
+#         ICUrange = np.arange(Ndata)[np.array(icu == bc["icu_name"])] ## array des indices (absolus, pour pouvoir corriger) de cet ICU
+#         sorting = np.argsort(datetimes[ICUrange])   ## indice interne de l'ordre chronologique
+#         ICUrange = ICUrange[sorting] ## range des indices de cet ICU ds le bon ordre
+#         for i, index_absolu in enumerate(ICUrange):
+#             if i>0: # so that we can compare woth the previous one
+#                 assert(ICUrange[i] == index_absolu) ## this is a comment
+#                 deltat = np.timedelta64(datetimes[ICUrange[i]] - datetimes[ICUrange[i-1]] ,'m')
+#                 ## si 2 saisies en moins de  XX secondes, alors :
+#                 if deltat < deltatmax_secondes_np_timedeltat64 :
+
+#                     ##TODO: se souvenir des indices a enlever (ou a garder) + les uppriemr a la fin
+#                     if np.array_equal(np_values_7_cols[:,ICUrange[i]], np_values_7_cols[:,ICUrange[i-1]]) == False: ## pas de flag si 2 saisies identiques
+#                         indices_a_eliminer.append(ICUrange[i-1])
+#                         print(icu, deltat)
+#                         print(np_values_7_cols[:,ICUrange[i]])
+#                         print(np_values_7_cols[:,ICUrange[i-1]])
+#                         ## choix par defaut: remplacer les 2 valeurs par le max (colonne par colonne)
+#                         np_values_7_cols[:,ICUrange[i]]   = np.maximum(np_values_7_cols[:,ICUrange[i]], np_values_7_cols[:,ICUrange[i-1]])
+#                         np_values_7_cols[:,ICUrange[i-1]] = np_values_7_cols[:,ICUrange[i]]
+#                         nBcorrection += 1
+
+#     print("il y a eu ", nBcorrection,   " corrections, à comparer avec ", bc.shape, "  ou plutot ", bc.shape[0])
+#     indices_a_eliminer= np.sort(np.array(indices_a_eliminer).copy())
+#     print(indices_a_eliminer)
+
+
+# ## TODO !! Ici j'ai un souci d'indices, clairement ##
+
+#     # ICUs              = ICUs.drop(index= indices_a_eliminer) #               = np.delete(ICUs,             indices_a_eliminer, axis=0)
+#     # ICUs = list(ICUs)
+#     # for index in sorted(indices_a_eliminer, reverse=True):
+#     #     del ICUs[index]
+#     # ICUs = pd.DataFrame(ICUs)
+#     ICUs = ICUs.drop(labels= indices_a_eliminer, axis=0)
+
+#     datetimes         = np.delete(datetimes,          indices_a_eliminer, axis=0)
+#     np_values_7_cols  = np.delete(np_values_7_cols[:,], indices_a_eliminer, axis=1)
+
+#     # ICUrange = np.delete(ICUrange, indices_a_eliminer)
+#     # ICUs              = ICUs[ICUrange] # .drop(index= indices_a_eliminer) #               = np.delete(ICUs,             indices_a_eliminer, axis=0)
+#     # datetimes         = datetimes[ICUrange]
+#     # np_values_7_cols  = np_values_7_cols[:,ICUrange]
+
+#     np_bc = [ICUs, datetimes, np_values_7_cols]
+#     bc_fusionnee = np_2_pd(np_bc)
+#     return bc_fusionnee
