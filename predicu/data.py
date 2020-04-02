@@ -5,7 +5,7 @@ import pickle
 import numpy as np
 import pandas as pd
 
-DEFAULT_ICUBAM_PATH = 'data/all_bedcounts_2020-04-02_11h05.csv'
+DEFAULT_ICUBAM_PATH = 'data/all_bedcounts_2020-04-02_13h39.csv'
 DEFAULT_PRE_ICUBAM_PATH = 'data/pre_icubam_data.csv'
 DEFAULT_ICU_NAME_TO_DEPARTMENT_PATH = 'data/icu_name_to_department.json'
 
@@ -34,7 +34,9 @@ MAX_DAY_INCREASE = {
 
 
 def load_all_data(
-  icubam_path=DEFAULT_ICUBAM_PATH, pre_icubam_path=DEFAULT_PRE_ICUBAM_PATH
+  icubam_path=DEFAULT_ICUBAM_PATH,
+  pre_icubam_path=DEFAULT_PRE_ICUBAM_PATH,
+  clean=True,
 ):
   pre_icubam = load_pre_icubam_data(pre_icubam_path)
   fix_same_icu = {
@@ -52,7 +54,10 @@ def load_all_data(
   dates_in_both = set(icubam.date.unique()) & set(pre_icubam.date.unique())
   pre_icubam = pre_icubam.loc[~pre_icubam.date.isin(dates_in_both)]
   d = pd.concat([pre_icubam, icubam])
-  d = clean_data(d)
+  if clean:
+    d = clean_data(d)
+  else:
+    d = d.groupby(['date', 'icu_name']).last().reset_index()
   d = d.sort_values(by=['date', 'icu_name'])
   return d
 
@@ -127,9 +132,9 @@ def aggregate_multiple_inputs(d):
 
 def fix_noncum_inputs(d, n_noncum_error_threshold=5):
   res_dfs = []
-  non_cum_icus = dict()
+  detected_noncum_errors = dict()
   for col in CUM_COLUMNS:
-    non_cum_icus[col] = {
+    detected_noncum_errors[col] = {
       icu_name for icu_name in d.icu_name.unique()
       if (
         d.loc[d.icu_name == icu_name] \
@@ -140,8 +145,8 @@ def fix_noncum_inputs(d, n_noncum_error_threshold=5):
     }
   for icu_name, dg in d.groupby('icu_name'):
     dg = dg.reset_index().sort_values(by='datetime')
-    for col in non_cum_icus:
-      if icu_name in non_cum_icus[col]:
+    for col in detected_noncum_errors:
+      if icu_name in detected_noncum_errors[col]:
         diffs = dg[col].diff(1) / dg.datetime.diff(1).days
         mask = diffs > MAX_DAY_INCREASE[col]
         dg.loc[~mask, col] = dg.loc[~mask, col].cumsum()
@@ -174,27 +179,27 @@ def get_clean_daily_values(d):
       prev_ncum_vals[icu_name] = new_ncum_vals
       sd = sd.sort_values(by="datetime")
       for col in CUM_COLUMNS:
-        if prev_cum_vals[icu_name][col] is None:
-          new_data_point[col] = sd[col].iloc[-1]
-          prev_cum_vals[icu_name][col] = {
-            'value': sd[col].iloc[-1],
-            'date': date,
-          }
-        else:
-          prev_valid_value = prev_cum_vals[icu_name][col]['value']
-          prev_valid_date = prev_cum_vals[icu_name][col]['date']
-          n_days_since_prev_valid = (date - prev_valid_date).days
-          max_increase = n_days_since_prev_valid * MAX_DAY_INCREASE[col]
-          for candidate in reversed(list(sd[col])):
-            if candidate >= prev_valid_value:
-              increase = candidate - prev_valid_value
-              if increase <= max_increase:
-                new_data_point[col] = increase
-                prev_cum_vals[icu_name][col] = {
-                  'value': candidate,
-                  'date': date,
-                }
-                break
+        # if prev_cum_vals[icu_name][col] is None:
+        new_data_point[col] = sd[col].iloc[-1]
+        prev_cum_vals[icu_name][col] = {
+          'value': sd[col].max(),
+          'date': date,
+        }
+        # else:
+        # prev_valid_value = prev_cum_vals[icu_name][col]['value']
+        # prev_valid_date = prev_cum_vals[icu_name][col]['date']
+        # n_days_since_prev_valid = (date - prev_valid_date).days
+        # max_increase = n_days_since_prev_valid * MAX_DAY_INCREASE[col]
+        # for candidate in reversed(list(sd[col])):
+        # if candidate >= prev_valid_value:
+        # increase = candidate - prev_valid_value
+        # if increase <= max_increase:
+        # new_data_point[col] = increase
+        # prev_cum_vals[icu_name][col] = {
+        # 'value': candidate,
+        # 'date': date,
+        # }
+        # break
     clean_data_points.append(new_data_point)
     per_icu_prev_data_point[icu_name] = new_data_point
   return pd.DataFrame(clean_data_points)
