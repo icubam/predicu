@@ -5,7 +5,7 @@ import pickle
 import numpy as np
 import pandas as pd
 
-DEFAULT_ICUBAM_PATH = 'data/bedcount_2020-03-31.pickle'
+DEFAULT_ICUBAM_PATH = 'data/all_bedcounts_2020-04-02_11h05.csv'
 DEFAULT_PRE_ICUBAM_PATH = 'data/pre_icubam_data.csv'
 DEFAULT_ICU_NAME_TO_DEPARTMENT_PATH = 'data/icu_name_to_department.json'
 
@@ -20,6 +20,7 @@ NCUM_COLUMNS = [
   "n_covid_free",
   "n_ncovid_free",
   "n_covid_occ",
+  "n_ncovid_occ",
 ]
 
 ALL_COLUMNS = ["icu_name", "date", "department"] + CUM_COLUMNS + NCUM_COLUMNS
@@ -44,15 +45,19 @@ def load_all_data(
   for old, new in fix_same_icu.items():
     pre_icubam.loc[pre_icubam.icu_name == old, "icu_name"] = new
   pre_icubam = pre_icubam.groupby(["date", "icu_name"]).sum().reset_index()
-  pre_icubam = pre_icubam.sort_values(by=["icu_name", "date"])
+  pre_icubam = format_data(pre_icubam)
   icubam = load_icubam_data(icubam_path)
+  icubam = icubam.rename(columns={'create_date': 'date'})
+  icubam = format_data(icubam)
   dates_in_both = set(icubam.date.unique()) & set(pre_icubam.date.unique())
   pre_icubam = pre_icubam.loc[~pre_icubam.date.isin(dates_in_both)]
-  d = format_data(pd.concat([pre_icubam, icubam]), clean=True)
+  d = pd.concat([pre_icubam, icubam])
+  d = clean_data(d)
+  d = d.sort_values(by=['date', 'icu_name'])
   return d
 
 
-def load_pre_icubam_data(pre_icubam_path, clean=True):
+def load_pre_icubam_data(pre_icubam_path):
   d = load_data_file(pre_icubam_path)
   d = d.rename(
     columns={
@@ -71,31 +76,33 @@ def load_pre_icubam_data(pre_icubam_path, clean=True):
   }
   for wrong_name, fixed_name in fix_icu_names.items():
     d.loc[d.icu_name == wrong_name, "icu_name"] = fixed_name
-  missing_columns = ["n_covid_transfered", "n_covid_refused", "n_ncovid_free"]
+  missing_columns = [
+    "n_covid_transfered", "n_covid_refused", "n_ncovid_free", "n_ncovid_occ"
+  ]
   for col in missing_columns:
     d[col] = 0
   return d
 
 
-def load_icubam_data(icubam_bedcount_path, clean=True):
+def load_icubam_data(icubam_bedcount_path):
   d = load_data_file(icubam_bedcount_path)
   return d
 
 
-def format_data(d, clean):
+def format_data(d):
   d['datetime'] = pd.to_datetime(d.date)
   d['date'] = d['datetime'].dt.date
   icu_name_to_department = load_icu_name_to_department()
   d['department'] = d.icu_name.apply(icu_name_to_department.get)
   d = d[ALL_COLUMNS + ['datetime']]
+  return d
+
+
+def clean_data(d):
   d = aggregate_multiple_inputs(d)
   d = fix_noncum_inputs(d)
-  columns = ALL_COLUMNS
-  if clean:
-    d = get_clean_daily_values(d)
-  else:
-    columns.append('datetime')
-  d = d[columns]
+  d = get_clean_daily_values(d)
+  d = d[ALL_COLUMNS]
   return d
 
 
@@ -104,14 +111,17 @@ def aggregate_multiple_inputs(d):
   agg.update({col: 'last' for col in ALL_COLUMNS if col not in CUM_COLUMNS})
   res_dfs = []
   for (icu_name, date), dg in d.groupby(['icu_name', 'date']):
-    res_dfs.append(
-      dg \
-      .set_index('datetime') \
-      .groupby(pd.Grouper(freq='15Min')) \
-      .agg(agg) \
-      .dropna() \
-      .reset_index()
-    )
+    if len(dg) < 3:
+      res_dfs.append(dg)
+    else:
+      res_dfs.append(
+        dg \
+        .set_index('datetime') \
+        .groupby(pd.Grouper(freq='15Min')) \
+        .agg(agg) \
+        .dropna() \
+        .reset_index()
+      )
   return pd.concat(res_dfs)
 
 
@@ -132,8 +142,9 @@ def fix_noncum_inputs(d, n_noncum_error_threshold=5):
     dg = dg.reset_index().sort_values(by='datetime')
     for col in non_cum_icus:
       if icu_name in non_cum_icus[col]:
-        dg.loc[dg[col] > MAX_DAY_INCREASE[col], col] = 0
-        dg[col] = dg[col].cumsum()
+        diffs = dg[col].diff(1) / dg.datetime.diff(1).days
+        mask = diffs > MAX_DAY_INCREASE[col]
+        dg.loc[~mask, col] = dg.loc[~mask, col].cumsum()
     res_dfs.append(dg)
   return pd.concat(res_dfs)
 
