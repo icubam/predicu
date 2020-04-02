@@ -89,6 +89,7 @@ def format_data(d, clean):
   d['department'] = d.icu_name.apply(icu_name_to_department.get)
   d = d[ALL_COLUMNS + ['datetime']]
   d = aggregate_multiple_inputs(d)
+  d = fix_noncum_inputs(d)
   columns = ALL_COLUMNS
   if clean:
     d = get_clean_daily_values(d)
@@ -111,6 +112,29 @@ def aggregate_multiple_inputs(d):
       .dropna() \
       .reset_index()
     )
+  return pd.concat(res_dfs)
+
+
+def fix_noncum_inputs(d, n_noncum_error_threshold=5):
+  res_dfs = []
+  non_cum_icus = dict()
+  for col in CUM_COLUMNS:
+    non_cum_icus[col] = {
+      icu_name for icu_name in d.icu_name.unique()
+      if (
+        d.loc[d.icu_name == icu_name] \
+        .set_index('datetime') \
+        .sort_index()[col] \
+        .diff(1) < 0 \
+      ).sum() > n_noncum_error_threshold
+    }
+  for icu_name, dg in d.groupby('icu_name'):
+    dg = dg.reset_index().sort_values(by='datetime')
+    for col in non_cum_icus:
+      if icu_name in non_cum_icus[col]:
+        dg.loc[dg[col] > MAX_DAY_INCREASE[col], col] = 0
+        dg[col] = dg[col].cumsum()
+    res_dfs.append(dg)
   return pd.concat(res_dfs)
 
 
