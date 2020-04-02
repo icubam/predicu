@@ -129,7 +129,7 @@ def plot_compare_2_dataBases(bc_origin, bc_corrected,plot_also_instant_values=Tr
             pandasSeriesAreEqual = True
         else:
             pandasSeriesAreEqual = True
-            for col_num in range(3,7):
+            for col_num in range(0,7):
                 colName = columnNames[col_num]
                 if np.array_equal(bc_origin[colName][ICUmask] , bc_corrected[colName][ICUmaskCorr]) == False:
                     pandasSeriesAreEqual = False
@@ -137,40 +137,65 @@ def plot_compare_2_dataBases(bc_origin, bc_corrected,plot_also_instant_values=Tr
         # if np.array_equal(bc_origin["n_covid_occ"], bc_corrected["n_covid_occ"] )==False:
         if pandasSeriesAreEqual == False :
 
-            fig, axs = plt.subplots(2, 2)
+            # if plot_also_instant_values :
+            ## les 3 premiere scolonnes en sont pas changees ni validees, pour le moment
+            ## plots des lits (valeurs non cumulatives)
+            plt.figure(icu_num*2,[10,10])
 
-            if plot_also_instant_values :
-                ## les 3 premiere scolonnes en sont pas changees ni validees, pour le moment
-                ## plots des lits (valeurs non cumulatives)
-                plt.figure(icu_num*2,[10,10])
-                ## before correction
-                plt.subplot(1, 2, 1)
-                plt.title(icu+ " avant correction")
-                n_respi_total =  bc_origin.loc[ICUmask,'n_covid_occ'] +  bc_origin.loc[ICUmask,'n_covid_free']
-                plt.plot(times[ICUmask], n_respi_total, label='total lits covid' , lw=2, marker='o')
-                for col_num in range(1,3):
-                    colName = columnNames[col_num]
-                    plt.plot(times[ICUmask],bc_origin[colName][ICUmask] , label=colName ,lw=2, marker='o')
-                plt.legend()
+            plt.title(icu+" données instantanées")
 
-                ## after correction
-                plt.subplot(1, 2, 2)
-                plt.title(icu+ " apres correction")
-                n_respi_total = bc_corrected["n_covid_occ"][ICUmaskCorr] + bc_corrected["n_covid_free"][ICUmaskCorr]
-                plt.plot(timesCorr[ICUmaskCorr], n_respi_total, label='total lits covid' , lw=2, marker='o')
-                for col_num in range(1,3):
-                    colName = columnNames[col_num]
-                    plt.plot(timesCorr[ICUmaskCorr],bc_corrected[colName][ICUmaskCorr] , label=colName ,lw=2, marker='o')
-                plt.legend()
-                plt.savefig(pathname+"/"+icu+"-inst-avant-apres.png")
-                plt.close(icu_num*2)
-
-
-            maxVals = np.zeros(4)
-            ## plots des valeurs cumulatives
-            plt.figure(icu_num*2+1,[10,10])
             ## before correction
-            plt.subplot(1, 2, 1)
+            plt.subplot(2, 2, 1)
+            plt.title(icu+ " avant correction")
+            # n_respi_total =  bc_origin.loc[ICUmask,'n_covid_occ'] +  bc_origin.loc[ICUmask,'n_covid_free']
+            # plt.plot(times[ICUmask], n_respi_total, label='total lits covid' , lw=2, marker='o')
+            # for col_num in range(1,3):
+            #     colName = columnNames[col_num]
+            #     plt.plot(times[ICUmask],bc_origin[colName][ICUmask] , label=colName ,lw=2, marker='o')
+            # plt.legend()
+            n_entrants = bc["n_covid_occ"][ICUmask] +bc["n_covid_deaths"][ICUmask] +bc["n_covid_healed"][ICUmask] +bc["n_covid_transfered"][ICUmask]
+            n_entrants = n_entrants.diff(1)
+            n_demandants = bc["n_covid_occ"][ICUmask] +bc["n_covid_deaths"][ICUmask] +bc["n_covid_healed"][ICUmask] +bc["n_covid_transfered"][ICUmask]+bc["n_covid_refused"][ICUmask]
+            n_demandants = n_entrants.diff(1)
+            plt.plot(times[ICUmask],bc["n_covid_occ"][ICUmask] + bc["n_covid_free"][ICUmask] , label='lits covid - total' , lw=2, marker='o')
+            plt.plot(times[ICUmask],n_entrants             , label='total entrants' , lw=2, marker='o')
+            plt.plot(times[ICUmask],n_demandants  , label="pression a l'entree" , lw=2, marker='o')
+            plt.plot(times[ICUmask],bc["n_covid_free"][ICUmask] , label="lits covid dispos" , lw=2, marker='o')
+            # for col_num in range(1,3):
+            #     colName = columnNames[col_num]
+            #     plt.plot(times[ICUmask],bc[colName][ICUmask] , label=colName , lw=2, marker='o')
+            plt.legend()
+            plt.ylim([-0.5,40])
+            plt.xlabel("jours (depuis 17 mars)") # depuis 17 mars
+
+
+            ## after correction
+            plt.subplot(2, 2, 2)
+            plt.title(icu+ " apres correction")
+            n_entrants = bc_corrected["n_covid_occ"][ICUmaskCorr] +bc_corrected["n_covid_deaths"][ICUmaskCorr] +bc_corrected["n_covid_healed"][ICUmaskCorr] +bc_corrected["n_covid_transfered"][ICUmaskCorr]
+            n_entrants = n_entrants.diff(1)
+            n_demandants = bc_corrected["n_covid_occ"][ICUmaskCorr] +bc_corrected["n_covid_deaths"][ICUmaskCorr] +bc_corrected["n_covid_healed"][ICUmaskCorr] +bc_corrected["n_covid_transfered"][ICUmaskCorr]+bc_corrected["n_covid_refused"][ICUmaskCorr]
+            n_demandants = n_entrants.diff(1)
+            plt.plot(timesCorr[ICUmaskCorr],bc_corrected["n_covid_occ"][ICUmaskCorr] + bc_corrected["n_covid_free"][ICUmaskCorr] , label='lits covid - total' , lw=2, marker='o')
+            plt.plot(timesCorr[ICUmaskCorr],n_entrants             , label='total entrants' , lw=2, marker='o')
+            plt.plot(timesCorr[ICUmaskCorr],n_demandants  , label="pression a l'entree" , lw=2, marker='o')
+            plt.plot(timesCorr[ICUmaskCorr],bc_corrected["n_covid_free"][ICUmaskCorr] , label="lits covid dispos" , lw=2, marker='o')
+            plt.legend()
+            plt.ylim([-0.5,40])
+            plt.xlabel("jours (depuis 17 mars)") # depuis 17 mars
+
+            # n_respi_total = bc_corrected["n_covid_occ"][ICUmaskCorr] + bc_corrected["n_covid_free"][ICUmaskCorr]
+            # plt.plot(timesCorr[ICUmaskCorr], n_respi_total, label='total lits covid' , lw=2, marker='o')
+            # for col_num in range(1,3):
+            #     colName = columnNames[col_num]
+            #     plt.plot(timesCorr[ICUmaskCorr],bc_corrected[colName][ICUmaskCorr] , label=colName ,lw=2, marker='o')
+            # plt.legend()
+
+            maxVals = np.zeros(4) # pour mettre le meme axe des y, pour fciliter la lecture
+            ## plots des valeurs cumulatives
+
+            ## before correction
+            plt.subplot(2, 2, 3)
             plt.title(icu+ " avant correction")
             for col_num in range(3,7):
                 colName = columnNames[col_num]
@@ -180,18 +205,21 @@ def plot_compare_2_dataBases(bc_origin, bc_corrected,plot_also_instant_values=Tr
             plt.ylim([-0.5, np.max(maxVals)+0.5])
 
             ## after correction
-            plt.subplot(1, 2, 2)
+            plt.subplot(2, 2, 4)
             plt.title(icu+ " apres correction")
             for col_num in range(3,7):
                 colName = columnNames[col_num]
                 plt.plot(timesCorr[ICUmaskCorr],bc_corrected[colName][ICUmaskCorr] , label=colName ,lw=2, marker='o')
             plt.legend()
-            plt.ylim([0, np.max(maxVals)])
-            plt.savefig(pathname+"/"+icu+"-cumu-avant-apres.png")
-            plt.close(icu_num*2+1)
+            plt.ylim([-0.5, np.max(maxVals)+0.5])
+
+
+            plt.savefig(pathname+"/"+icu+"-avant-apres.png")
+            plt.close(icu_num*2)
         else:
             print(icu, " n'a pas ete modifie, donc pas de plot comparatif")
-        # if icu_num >2:
+
+        # if icu_num >4:
         #     break
 
 
@@ -396,8 +424,8 @@ bc_corrected0 = fix_noncum_inputs(bc_fusionnee, 0)
 bc_corrected0Origina = make_cumulative_the_records_that_should_be(bc_fusionnee, 0)
 # bc_corrected1Origina = make_cumulative_the_records_that_should_be(bc_fusionnee, 1)
 # bc_corrected2Origina = make_cumulative_the_records_that_should_be(bc_fusionnee, 2)
+plot_compare_2_dataBases(bc_fusionnee, bc_corrected0, False, "fusion-vs-corrigee-tolerance=0") ## 20 sorties
 if full_plots :
-    plot_compare_2_dataBases(bc_fusionnee, bc_corrected0Origina, False, "fusion-vs-corrigee-tolerance=0") ## 20 sorties
     plot_compare_2_dataBases(bc_fusionnee, bc_corrected1Origina, False, "fusion-vs-corrigee-tolerance=1") ## ->  5 sorties
     plot_compare_2_dataBases(bc_fusionnee, bc_corrected2Origina, False, "fusion-vs-corrigee-tolerance=2") #-> seul gentilly sort
 # if debug_mode:
