@@ -37,7 +37,7 @@ def plot_icu_values(icu_name, data_clean, path, data_raw):
   ax_nc_raw = fig.add_subplot(gs[1, 0])
   ax_nc_raw.set_title('Valeurs non-cummulées avant traitement')
   ax_nc_clean = fig.add_subplot(gs[1, 1], sharey=ax_nc_raw)
-  ax_nc_raw.set_title('Valeurs non-cummulées après traitement')
+  ax_nc_clean.set_title('Valeurs non-cummulées après traitement')
   data_clean = data_clean.set_index('date').sort_index()
   data_raw = data_raw.loc[data_raw.icu_name == icu_name
                           ].set_index('date').sort_index()

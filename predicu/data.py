@@ -179,27 +179,27 @@ def get_clean_daily_values(d):
       prev_ncum_vals[icu_name] = new_ncum_vals
       sd = sd.sort_values(by="datetime")
       for col in CUM_COLUMNS:
-        # if prev_cum_vals[icu_name][col] is None:
-        new_data_point[col] = sd[col].iloc[-1]
-        prev_cum_vals[icu_name][col] = {
-          'value': sd[col].max(),
-          'date': date,
-        }
-        # else:
-        # prev_valid_value = prev_cum_vals[icu_name][col]['value']
-        # prev_valid_date = prev_cum_vals[icu_name][col]['date']
-        # n_days_since_prev_valid = (date - prev_valid_date).days
-        # max_increase = n_days_since_prev_valid * MAX_DAY_INCREASE[col]
-        # for candidate in reversed(list(sd[col])):
-        # if candidate >= prev_valid_value:
-        # increase = candidate - prev_valid_value
-        # if increase <= max_increase:
-        # new_data_point[col] = increase
-        # prev_cum_vals[icu_name][col] = {
-        # 'value': candidate,
-        # 'date': date,
-        # }
-        # break
+        if prev_cum_vals[icu_name][col] is None:
+          new_data_point[col] = sd[col].iloc[-1]
+          prev_cum_vals[icu_name][col] = {
+            'value': sd[col].max(),
+            'date': date,
+          }
+        else:
+          prev_valid_value = prev_cum_vals[icu_name][col]['value']
+          prev_valid_date = prev_cum_vals[icu_name][col]['date']
+          n_days_since_prev_valid = (date - prev_valid_date).days
+          max_increase = n_days_since_prev_valid * MAX_DAY_INCREASE[col]
+          for candidate in reversed(list(sd[col])):
+            if candidate >= prev_valid_value:
+              increase = candidate - prev_valid_value
+              if increase <= max_increase:
+                new_data_point[col] = increase
+                prev_cum_vals[icu_name][col] = {
+                  'value': candidate,
+                  'date': date,
+                }
+                break
     clean_data_points.append(new_data_point)
     per_icu_prev_data_point[icu_name] = new_data_point
   return pd.DataFrame(clean_data_points)
