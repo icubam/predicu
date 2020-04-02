@@ -5,7 +5,7 @@ import pickle
 import numpy as np
 import pandas as pd
 
-DEFAULT_ICUBAM_PATH = 'data/all_bedcounts_2020-04-02_13h39.csv'
+DEFAULT_ICUBAM_PATH = 'data/all_bedcounts_2020-04-02_20h55.csv'
 DEFAULT_PRE_ICUBAM_PATH = 'data/pre_icubam_data.csv'
 DEFAULT_ICU_NAME_TO_DEPARTMENT_PATH = 'data/icu_name_to_department.json'
 
@@ -56,8 +56,6 @@ def load_all_data(
   d = pd.concat([pre_icubam, icubam])
   if clean:
     d = clean_data(d)
-  else:
-    d = d.groupby(['date', 'icu_name']).last().reset_index()
   d = d.sort_values(by=['date', 'icu_name'])
   return d
 
@@ -112,7 +110,7 @@ def clean_data(d):
 
 
 def aggregate_multiple_inputs(d):
-  agg = {col: 'max' for col in CUM_COLUMNS}
+  agg = {col: 'last' for col in CUM_COLUMNS}
   agg.update({col: 'last' for col in ALL_COLUMNS if col not in CUM_COLUMNS})
   res_dfs = []
   for (icu_name, date), dg in d.groupby(['icu_name', 'date']):
@@ -160,7 +158,6 @@ def get_clean_daily_values(d):
   icu_names = sorted(list(d.icu_name.unique()))
   clean_data_points = list()
   prev_ncum_vals = dict()
-  prev_cum_vals = {i: {c: None for c in CUM_COLUMNS} for i in icu_names}
   per_icu_prev_data_point = dict()
   for date, icu_name in itertools.product(dates, icu_names):
     sd = d.loc[(d.date == date) & (d.icu_name == icu_name)]
@@ -179,27 +176,7 @@ def get_clean_daily_values(d):
       prev_ncum_vals[icu_name] = new_ncum_vals
       sd = sd.sort_values(by="datetime")
       for col in CUM_COLUMNS:
-        if prev_cum_vals[icu_name][col] is None:
-          new_data_point[col] = sd[col].iloc[-1]
-          prev_cum_vals[icu_name][col] = {
-            'value': sd[col].max(),
-            'date': date,
-          }
-        else:
-          prev_valid_value = prev_cum_vals[icu_name][col]['value']
-          prev_valid_date = prev_cum_vals[icu_name][col]['date']
-          n_days_since_prev_valid = (date - prev_valid_date).days
-          max_increase = n_days_since_prev_valid * MAX_DAY_INCREASE[col]
-          for candidate in reversed(list(sd[col])):
-            if candidate >= prev_valid_value:
-              increase = candidate - prev_valid_value
-              if increase <= max_increase:
-                new_data_point[col] = increase
-                prev_cum_vals[icu_name][col] = {
-                  'value': candidate,
-                  'date': date,
-                }
-                break
+        new_data_point[col] = sd[col].max()
     clean_data_points.append(new_data_point)
     per_icu_prev_data_point[icu_name] = new_data_point
   return pd.DataFrame(clean_data_points)
