@@ -21,15 +21,15 @@ When loading data, file extensions should be either `.csv`, `.h5` or `.pickle`.
 File extensions should be either `.csv`, `.h5` or `.pickle`.
 
 ```python
-from predicu.data import load_icubam_bedcount_data
+from predicu import load_icubam_data
 
-d = load_icubam_bedcount_data('bedcount_2020-03-31_14h54.{csv,h5,pickle}')
+d = load_icubam_data('bedcount_2020-03-31_14h54.{csv,h5,pickle}')
 ```
 
 #### Load Antoine's pre-ICUBAM data (starting March 18th, ending March 25th)
 
 ```python
-from predicu.data import load_pre_icubam_data
+from predicu import load_pre_icubam_data
 
 d = load_pre_icubam_data('my_data_file.{csv,h5,pickle}')
 ```
@@ -37,7 +37,7 @@ d = load_pre_icubam_data('my_data_file.{csv,h5,pickle}')
 #### Load all data
 
 ```python
-from predicu.data import load_all_data
+from predicu import load_all_data
 
 d = load_all_data(
   icubam_bedcount_path='bedcount_2020-03-31_17h43.{csv,h5,pickle}',
