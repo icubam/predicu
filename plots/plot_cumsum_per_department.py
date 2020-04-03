@@ -1,11 +1,13 @@
 import matplotlib.gridspec
 import matplotlib.pyplot as plt
 import matplotlib.style
+import numpy as np
 import seaborn as sns
 import tikzplotlib
 
 from predicu import load_all_data
 from predicu.data import CUM_COLUMNS
+from predicu.plot import COLUMN_COLOR, COLUMN_TO_HUMAN_READABLE
 
 matplotlib.style.use('seaborn-whitegrid')
 
@@ -21,14 +23,20 @@ for i, col in enumerate(CUM_COLUMNS):
   if ax0 is None: ax0 = ax
   for g, d in data.groupby('department'):
     d = d.groupby('date')[col].sum().sort_index().cumsum()
-    ax.plot(d.index.values, d.values, label=g)
-  ax.set_title(col)
-  ax.legend(ncol=2, loc="upper left", frameon=True)
+    ax.plot(np.arange(d.values.shape[0]), d.values, label=g)
+  ax.set_title(COLUMN_TO_HUMAN_READABLE[col])
   dates = sorted(list(data.date.unique()))
-  ax.set_xticks(dates)
+  ax.set_xticks(np.arange(d.values.shape[0]))
   ax.set_xticklabels([date.strftime('%d/%m') for date in dates],
                      rotation=45,
                      fontdict={'fontsize': 'x-small'})
-fig.suptitle('Grand Est cumsum on ICUs')
-fig.tight_layout()
-fig.savefig('fig.pdf')
+ax0.legend(ncol=2, loc="upper left", frameon=True, fontsize='xx-small')
+fig.subplots_adjust(hspace=0.7)
+tikzplotlib.save(
+  'reports/figs/cumsum_per_department.tex',
+  standalone=True,
+  extra_groupstyle_parameters={
+    r'horizontal sep=0.2cm',
+    r'vertical sep=3cm',
+  }
+)
