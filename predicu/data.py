@@ -2,6 +2,7 @@ import itertools
 import json
 import pickle
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
@@ -39,19 +40,12 @@ def load_all_data(
   clean=True,
 ):
   pre_icubam = load_pre_icubam_data(pre_icubam_path)
-  fix_same_icu = {
-    "CHR-SSPI": "CHR-Thionville",
-    "CHR-CCV": "CHR-Thionville",
-    "Nancy-NC": "Nancy-RCP"
-  }
-  for old, new in fix_same_icu.items():
-    pre_icubam.loc[pre_icubam.icu_name == old, "icu_name"] = new
-  pre_icubam = pre_icubam.groupby(["date", "icu_name"]).sum().reset_index()
-  pre_icubam = format_data(pre_icubam)
-  icubam = load_icubam_data(icubam_path)
+  icubam = format_data(
+    load_data_file(icubam_path).rename(columns={'create_date': 'date'})
+  )
   icubam = icubam.rename(columns={'create_date': 'date'})
-  icubam = format_data(icubam)
   dates_in_both = set(icubam.date.unique()) & set(pre_icubam.date.unique())
+  # icubam = icubam.loc[~icubam.date.isin(dates_in_both)]
   pre_icubam = pre_icubam.loc[~pre_icubam.date.isin(dates_in_both)]
   d = pd.concat([pre_icubam, icubam])
   if clean:
@@ -79,21 +73,24 @@ def load_pre_icubam_data(pre_icubam_path):
   }
   for wrong_name, fixed_name in fix_icu_names.items():
     d.loc[d.icu_name == wrong_name, "icu_name"] = fixed_name
+  fix_same_icu = {
+    "CHR-SSPI": "CHR-Thionville",
+    "CHR-CCV": "CHR-Thionville",
+    "Nancy-NC": "Nancy-RCP"
+  }
+  for old, new in fix_same_icu.items():
+    d.loc[d.icu_name == old, "icu_name"] = new
   missing_columns = [
     "n_covid_transfered", "n_covid_refused", "n_ncovid_free", "n_ncovid_occ"
   ]
   for col in missing_columns:
     d[col] = 0
-  return d
-
-
-def load_icubam_data(icubam_bedcount_path):
-  d = load_data_file(icubam_bedcount_path)
+  d = format_data(d)
   return d
 
 
 def format_data(d):
-  d['datetime'] = pd.to_datetime(d.date)
+  d['datetime'] = pd.to_datetime(d['date'])
   d['date'] = d['datetime'].dt.date
   icu_name_to_department = load_icu_name_to_department()
   d['department'] = d.icu_name.apply(icu_name_to_department.get)
@@ -103,13 +100,39 @@ def format_data(d):
 
 def clean_data(d):
   d = aggregate_multiple_inputs(d)
-  d = fix_noncum_inputs(d)
-  d = get_clean_daily_values(d)
-  d = d[ALL_COLUMNS]
+  # d = fix_noncum_inputs(d)
+  # d = get_clean_daily_values(d)
+  d = d[ALL_COLUMNS + ['datetime']]
   return d
 
 
 def aggregate_multiple_inputs(d):
+  res_dfs = []
+  for icu_name, dg in d.groupby('icu_name'):
+    dg = dg.set_index('datetime')
+    dg = dg.sort_index()
+    mask = (dg.index.to_series().diff(1) >
+            pd.Timedelta('15Min')).shift(-1).fillna(True).astype(bool)
+    dg = dg.loc[mask]
+
+    for col in CUM_COLUMNS:
+      dg[col] = dg[col].rolling(5, center=True, min_periods=1).median().astype(int)
+
+    for col in CUM_COLUMNS:
+      new_col = []
+      last_val = -100000
+      for idx, row in dg.iterrows():
+        if row[col] >= last_val:
+          new_val = row[col]
+        else:
+          new_val = last_val
+        new_col.append(new_val)
+        last_val = new_val
+      dg[col] = new_col
+
+    res_dfs.append(dg.reset_index())
+  return pd.concat(res_dfs)
+
   agg = {col: 'last' for col in CUM_COLUMNS}
   agg.update({col: 'last' for col in ALL_COLUMNS if col not in CUM_COLUMNS})
   res_dfs = []

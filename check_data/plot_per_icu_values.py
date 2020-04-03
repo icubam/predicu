@@ -28,6 +28,7 @@ COLUMN_COLOR = {
 
 
 def plot_icu_values(icu_name, data_clean, path, data_raw):
+  all_dates = sorted(list(data_clean.date.unique()))
   fig = plt.figure(figsize=(10, 5))
   gs = matplotlib.gridspec.GridSpec(2, 2)
   ax_c_raw = fig.add_subplot(gs[0, 0])
@@ -38,24 +39,27 @@ def plot_icu_values(icu_name, data_clean, path, data_raw):
   ax_nc_raw.set_title('Valeurs non-cummulées avant traitement')
   ax_nc_clean = fig.add_subplot(gs[1, 1], sharey=ax_nc_raw)
   ax_nc_clean.set_title('Valeurs non-cummulées après traitement')
-  data_clean = data_clean.set_index('date').sort_index()
+  data_clean = data_clean.set_index('datetime').sort_index()
   data_raw = data_raw.loc[data_raw.icu_name == icu_name
-                          ].set_index('date').sort_index()
+                          ].set_index('datetime').sort_index()
   for i, (cols_grp, ax_raw,
           ax_clean) in enumerate([(CUM_COLUMNS, ax_c_raw, ax_c_clean),
                                   (NCUM_COLUMNS, ax_nc_raw, ax_nc_clean)]):
     for col in cols_grp:
-      for ax, df in [(ax_raw, data_raw), (ax_clean, data_clean)]:
+      for j, (ax, df) in enumerate(
+        [(ax_raw, data_raw), (ax_clean, data_clean)]
+      ):
         ax.plot(
           df.index,
-          df[col].cumsum() if i == 0 else df[col],
+          df[col],
+          # df[col].cumsum() if (i == 0 and j == 1) else df[col],
           label=COLUMN_TO_HUMAN_READABLE[col],
           color=COLUMN_COLOR[col]
         )
     for ax, data in [(ax_raw, data_raw), (ax_clean, data_clean)]:
       ax.legend(ncol=2, loc="upper left", frameon=True)
-      ax.set_xticks(data.index)
-      ax.set_xticklabels([date.strftime('%d/%m') for date in data.index],
+      ax.set_xticks(all_dates)
+      ax.set_xticklabels([date.strftime('%d/%m') for date in all_dates],
                          rotation=45,
                          fontdict={'fontsize': 'x-small'})
   fig.suptitle(icu_name)
