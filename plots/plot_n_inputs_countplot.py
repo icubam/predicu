@@ -5,11 +5,11 @@ import numpy as np
 import seaborn as sns
 import tikzplotlib
 
-from predicu.data import DEFAULT_ICUBAM_PATH, format_data, load_icubam_data
+from predicu.data import DEFAULT_ICUBAM_PATH, format_data, load_data_file
 
 matplotlib.style.use('seaborn-darkgrid')
 
-d = load_icubam_data(DEFAULT_ICUBAM_PATH)
+d = load_data_file(DEFAULT_ICUBAM_PATH)
 d = d.rename(columns={'create_date': 'date'})
 d = format_data(d)
 counts = d.groupby(['date', 'icu_name']).datetime.count().values
