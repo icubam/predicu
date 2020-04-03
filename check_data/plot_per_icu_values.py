@@ -29,16 +29,16 @@ COLUMN_COLOR = {
 
 def plot_icu_values(icu_name, data_clean, path, data_raw):
   all_dates = sorted(list(data_clean.date.unique()))
-  fig = plt.figure(figsize=(10, 5))
+  fig = plt.figure(figsize=(18, 10))
   gs = matplotlib.gridspec.GridSpec(2, 2)
   ax_c_raw = fig.add_subplot(gs[0, 0])
-  ax_c_raw.set_title('Valeurs cummulées avant traitement')
+  ax_c_raw.set_title('Valeurs cumulées avant traitement')
   ax_c_clean = fig.add_subplot(gs[0, 1], sharey=ax_c_raw)
-  ax_c_clean.set_title('Valeurs cummulées après traitement')
+  ax_c_clean.set_title('Valeurs cumulées après traitement')
   ax_nc_raw = fig.add_subplot(gs[1, 0])
-  ax_nc_raw.set_title('Valeurs non-cummulées avant traitement')
+  ax_nc_raw.set_title('Valeurs non-cumulées avant traitement')
   ax_nc_clean = fig.add_subplot(gs[1, 1], sharey=ax_nc_raw)
-  ax_nc_clean.set_title('Valeurs non-cummulées après traitement')
+  ax_nc_clean.set_title('Valeurs non-cumulées après traitement')
   data_clean = data_clean.set_index('datetime').sort_index()
   data_raw = data_raw.loc[data_raw.icu_name == icu_name
                           ].set_index('datetime').sort_index()
@@ -63,6 +63,7 @@ def plot_icu_values(icu_name, data_clean, path, data_raw):
                          rotation=45,
                          fontdict={'fontsize': 'x-small'})
   fig.suptitle(icu_name)
+  fig.tight_layout()
   fig.savefig(path)
 
 
