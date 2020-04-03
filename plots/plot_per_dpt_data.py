@@ -28,8 +28,11 @@ data = data.reset_index()
 
 icu2dpt = load_icu_name_to_department()
 data["department"] = data["icu_name"].apply(icu2dpt.get)
+data = data.groupby("department").n_covid_deaths.sum()
+data = data.sort_values()
+data = data.reset_index()
 
-unique_dpts = sorted(list(set(list(data["department"].unique()))))
+unique_dpts = data.department
 colors = matplotlib.cm.Set2(np.linspace(1, 0, len(unique_dpts)))
 dpt2color = dict(zip(unique_dpts, colors))
 
@@ -49,17 +52,33 @@ for i, row in data.iterrows():
     ax.add_patch(rect_patch)
     ax.text(
         row["n_covid_deaths"],
-        i + 0.15,
-        r"\Large{{{}}}".format(row["n_covid_deaths"]),
+        i + 0.3,
+        r"\large{{{}}}".format(row["n_covid_deaths"]),
+        ha="right",
     )
+    if row["n_covid_deaths"] >= 30:
+        ax.text(
+            0.5,
+            i + 0.3,
+            r"\normalsize{{{}}}".format(row["department"]),
+            ha="left",
+        )
+    else:
+        ax.text(
+            row["n_covid_deaths"],
+            i + 0.3,
+            r"\normalsize{{{}}}".format(row["department"]),
+            ha="left",
+        )
 ax.set_xlim(0, data["n_covid_deaths"].iloc[-1] + 3)
 ax.set_ylim(0, len(data))
-xticks = [5, 10, 15, 20]
+xticks = np.arange(0, data.n_covid_deaths.max() + 3, 5)[1:]
 for xtick in xticks:
     ax.axvline(x=xtick, ls="dashed", c="w")
 ax.set_xticks(xticks)
-ax.set_yticks(np.arange(len(data)) + 0.5)
-ax.set_yticklabels(data.icu_name)
+# ax.set_yticks(np.arange(len(data)) + 0.5)
+# ax.set_yticklabels(data.icu_name)
+ax.set_yticks([])
 ax.legend(
     handles=[
         matplotlib.patches.Patch(facecolor=dpt2color[dpt], label=dpt)
@@ -68,20 +87,19 @@ ax.legend(
     loc="lower right",
 )
 # ax.set_title(r'Nbr de décès par réa (18 mars $\rightarrow$ 3 avril)')
-# fig.savefig('fig.pdf')
 extra_axis_parameters = {
-    r"xticklabel style={font=\scriptsize}",
-    r"yticklabel style={font=\scriptsize}",
+    # r"xticklabel style={font=\scriptsize}",
+    # r"yticklabel style={font=\scriptsize}",
 }
 extra_tikzpicture_parameters = {
-    # r"every axis legend/.code={\let\addlegendentry\relax}"
+    r"every axis legend/.code={\let\addlegendentry\relax}"
 }
 tikzplotlib.save(
     "/tmp/fig.tex",
     standalone=True,
     axis_width="8cm",
-    axis_height="12cm",
-    textsize=8.0,
+    axis_height="8cm",
+    textsize=5.0,
     extra_axis_parameters=extra_axis_parameters,
     extra_tikzpicture_parameters=extra_tikzpicture_parameters,
 )
