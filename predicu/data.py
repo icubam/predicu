@@ -1,6 +1,7 @@
 import itertools
 import json
 import pickle
+import os
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -39,8 +40,10 @@ MAX_DAY_INCREASE = {
 def load_all_data(
     icubam_path=DEFAULT_ICUBAM_PATH,
     pre_icubam_path=DEFAULT_PRE_ICUBAM_PATH,
-    clean=True,
+    clean=True, cache=True,
 ):
+    if cache and os.path.isfile('/tmp/predicu_cache.h5'):
+        return pd.read_hdf('/tmp/predicu_cache.h5')
     pre_icubam = load_pre_icubam_data(pre_icubam_path)
     icubam = format_data(
         load_data_file(icubam_path).rename(columns={"create_date": "date"})
@@ -53,6 +56,7 @@ def load_all_data(
     if clean:
         d = clean_data(d)
     d = d.sort_values(by=["date", "icu_name"])
+    d.to_hdf('/tmp/predicu_cache.h5', 'values')
     return d
 
 
