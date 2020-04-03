@@ -28,7 +28,6 @@ data = data.reset_index()
 
 icu2dpt = load_icu_name_to_department()
 data["department"] = data["icu_name"].apply(icu2dpt.get)
-data.groupby('department').n_covid_deaths.sum().reset_index()
 
 unique_dpts = sorted(list(set(list(data["department"].unique()))))
 colors = matplotlib.cm.Set2(np.linspace(1, 0, len(unique_dpts)))
