@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-DEFAULT_ICUBAM_PATH = 'data/all_bedcounts_2020-04-02_20h55.csv'
+DEFAULT_ICUBAM_PATH = 'data/all_bedcounts_2020-04-03_17h20.csv'
 DEFAULT_PRE_ICUBAM_PATH = 'data/pre_icubam_data.csv'
 DEFAULT_ICU_NAME_TO_DEPARTMENT_PATH = 'data/icu_name_to_department.json'
 
