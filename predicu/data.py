@@ -118,6 +118,10 @@ def aggregate_multiple_inputs(d):
     for col in CUM_COLUMNS:
       dg[col] = dg[col].rolling(5, center=True, min_periods=1).median().astype(int)
 
+    for col in NCUM_COLUMNS:
+      dg[col] = dg[col].fillna(0)
+      dg[col] = dg[col].rolling(3, center=True, min_periods=1).median().astype(int)
+
     for col in CUM_COLUMNS:
       new_col = []
       last_val = -100000
