@@ -7,7 +7,7 @@ import tikzplotlib
 
 from predicu import load_all_data
 from predicu.data import CUM_COLUMNS
-from predicu.plot import COLUMN_COLOR, COLUMN_TO_HUMAN_READABLE
+from predicu.plot import COL_COLOR, COLUMN_TO_HUMAN_READABLE
 
 matplotlib.style.use('seaborn-whitegrid')
 
