@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-DEFAULT_ICUBAM_PATH = "data/all_bedcounts_2020-04-03_22h20.csv"
+DEFAULT_ICUBAM_PATH = "data/all_bedcounts_2020-04-04_12h01.csv"
 DEFAULT_PRE_ICUBAM_PATH = "data/pre_icubam_data.csv"
 DEFAULT_ICU_NAME_TO_DEPARTMENT_PATH = "data/icu_name_to_department.json"
 CUM_COLUMNS = [
@@ -40,13 +40,13 @@ def load_all_data(
     )
     icubam = icubam.rename(columns={"create_date": "date"})
     dates_in_both = set(icubam.date.unique()) & set(pre_icubam.date.unique())
-    # icubam = icubam.loc[~icubam.date.isin(dates_in_both)]
     pre_icubam = pre_icubam.loc[~pre_icubam.date.isin(dates_in_both)]
     d = pd.concat([pre_icubam, icubam])
     if clean:
         d = clean_data(d)
     d = d.sort_values(by=["date", "icu_name"])
-    d.to_hdf("/tmp/predicu_cache.h5", "values")
+    if cache and clean:
+        d.to_hdf("/tmp/predicu_cache.h5", "values")
     return d
 
 
@@ -217,4 +217,5 @@ def load_department_population():
 
 
 DEPARTMENTS = sorted(list(set(list(load_icu_name_to_department().values()))))
-DEPARTMENTS_GRAND_EST = sorted(load_pre_icubam_data().icu_name.unique())
+DEPARTMENTS_GRAND_EST = sorted(load_pre_icubam_data().department.unique())
+ICU_NAMES_GRAND_EST = sorted(load_pre_icubam_data().icu_name.unique())
