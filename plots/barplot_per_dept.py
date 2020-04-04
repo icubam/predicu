@@ -16,7 +16,7 @@ import tikzplotlib
 matplotlib.style.use("seaborn-dark")
 
 data = predicu.data.load_all_data()
-data = data.loc[data.icu_name.isin(predicu.data.DEPARTMENTS_GRAND_EST)]
+data = data.loc[data.icu_name.isin(predicu.data.ICU_NAMES_GRAND_EST)]
 data = data.groupby(["date", "department"]).agg(
     {col: "sum" for col in predicu.data.BEDCOUNT_COLUMNS}
 )
@@ -24,11 +24,6 @@ data = data.reset_index()
 data = data.sort_values(by=["department", "date"])
 data = data.groupby("department").last()
 data = data.reset_index()
-flowcols = sorted(
-    set(predicu.data.CUM_COLUMNS + ["n_covid_occ"]) - {"n_covid_refused"}
-)
-data["flow"] = data[flowcols].sum(axis=1)
-data = data.sort_values(by="flow", ascending=False)
 
 barplot_columns = [
     "n_covid_deaths",
@@ -37,6 +32,9 @@ barplot_columns = [
     "n_covid_refused",
     "n_covid_occ",
 ]
+data['total'] = data[barplot_columns].sum(axis=1)
+data = data.sort_values(by='total', ascending=False)
+
 
 fig, ax = plt.subplots(1, figsize=(8, 8))
 for i, (_, row) in enumerate(data.iterrows()):
@@ -82,7 +80,7 @@ extra_tikzpicture_parameters = {
     # r"every axis legend/.code={\let\addlegendentry\relax}"
 }
 tikzplotlib.save(
-    "/tmp/fig.tex",
+    "reports/figs/barplot_per_dept.tex",
     standalone=True,
     axis_width="10cm",
     axis_height="10cm",

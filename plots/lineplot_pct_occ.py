@@ -23,71 +23,38 @@ data = data.groupby(["date", "department"]).agg(agg)
 data = data.reset_index()
 
 
-def compute_charge(d):
-    return np.clip(
-        d[
-            set(predicu.data.CUM_COLUMNS + ["n_covid_occ"])
-            - {"n_covid_refused"}
-        ]
-        .sum(axis=1)
-        .diff(3)
-        .fillna(0),
-        0,
-        1e6,
+def compute_pct_occ(d):
+    return (d["n_covid_occ"] / (d["n_covid_occ"] + d["n_covid_free"])).fillna(
+        0
     )
 
 
-def compute_charge_per_dpt(data):
-    dfs = []
-    for dpt, d in data.groupby("department"):
-        d = d.sort_values(by="date")
-        d["charge"] = compute_charge(d)
-        d["cum_charge"] = d.charge.cumsum()
-        dfs.append(d)
-    return pd.concat(dfs)
-
-
-data = compute_charge_per_dpt(data)
+data["pct_occ"] = compute_pct_occ(data)
 
 fig, ax = plt.subplots(1, figsize=(7, 4))
 
 date_idx_range = np.arange(len(data.date.unique()))
-sorted_depts = list(
-    data.groupby("department")
-    .cum_charge.max()
-    .sort_values(ascending=False)
-    .reset_index()
-    .department
-)
-for i, department in enumerate(sorted_depts):
-    y = (
-        data.loc[data.department.isin(sorted_depts[i:])]
-        .groupby("date")
-        .cum_charge.sum()
-        .sort_index()
-        .values
-    )
+for department, d in data.groupby("department"):
+    d = d.sort_values(by="date")
     predicu.plot.plot_int(
         date_idx_range,
-        y,
+        d["pct_occ"],
         ax=ax,
         color=predicu.plot.DEPARTMENT_GRAND_EST_COLOR[department],
         label=department,
-        lw=1,
-        fill_below=True,
+        lw=2,
     )
 
-if False:
-    ge_charge = compute_charge(data.groupby("date").agg(agg))
-    predicu.plot.plot_int(
-        date_idx_range,
-        ge_charge.cumsum(),
-        ax=ax,
-        color=next(predicu.plot.RANDOM_COLORS),
-        marker=False,
-        label="Grand Est",
-        lw=1,
-    )
+ge_pct_occ = data.groupby("date").pct_occ.mean().sort_index().values
+predicu.plot.plot_int(
+    date_idx_range,
+    ge_pct_occ,
+    ax=ax,
+    color='k',
+    marker=False,
+    label="Grand Est",
+    lw=4,
+)
 
 ax.set_xticks(np.arange(data.date.unique().shape[0]))
 ax.set_xticklabels(
@@ -95,20 +62,28 @@ ax.set_xticklabels(
     rotation=45,
 )
 ax.legend(
-    ncol=1,
+    ncol=2,
     handles=[
         matplotlib.patches.Patch(
-            facecolor=predicu.plot.DEPARTMENT_GRAND_EST_COLOR[dpt],
-            label=dpt,
+            facecolor=predicu.plot.DEPARTMENT_GRAND_EST_COLOR[department],
+            label=department,
             linewidth=3,
         )
-        for dpt in sorted_depts
+        for department in sorted(data.department.unique())
+    ] + [
+        matplotlib.patches.Patch(
+            facecolor='k',
+            label='Grand Est',
+            linewidth=3,
+        )
     ],
-    loc="upper left",
+    loc="lower right",
 )
+# ax.set_ylabel('Pourcentage d\'occupations des lits Covid+')
 # fig.tight_layout()
 # fig.savefig("fig.png")
 # plt.show()
+# __import__("sys").exit()
 
 extra_axis_parameters = {
     # r"xticklabel style={font=\scriptsize}",
@@ -118,7 +93,7 @@ extra_tikzpicture_parameters = {
     # r"every axis legend/.code={\let\addlegendentry\relax}"
 }
 tikzplotlib.save(
-    "reports/figs/stack_cum_flow_per_dept.tex",
+    "reports/figs/lineplot_pct_occ.tex",
     standalone=True,
     axis_width="14cm",
     axis_height="8cm",
