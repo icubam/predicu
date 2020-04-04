@@ -118,7 +118,7 @@ extra_tikzpicture_parameters = {
     # r"every axis legend/.code={\let\addlegendentry\relax}"
 }
 tikzplotlib.save(
-    "reports/figs/plot_cumulative_flow_per_department.tex",
+    "reports/figs/stack_cum_flow_per_dept.tex",
     standalone=True,
     axis_width="16cm",
     axis_height="10cm",
