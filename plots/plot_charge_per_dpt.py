@@ -22,51 +22,63 @@ grand_est_icu_names = set(pre_icubam_data.icu_name.unique())
 data = load_all_data()
 data = data.loc[data.icu_name.isin(grand_est_icu_names)]
 
-agg = {col: 'sum' for col in CUM_COLUMNS + NCUM_COLUMNS}
-data = data.groupby(["date", "department"]).agg(agg)
+
+grp_column = "department"
+
+agg = {col: "sum" for col in CUM_COLUMNS + NCUM_COLUMNS}
+data = data.groupby(["date", grp_column]).agg(agg)
 data = data.reset_index()
 
-unique_dpts = sorted(data.department.unique())
-# colors = matplotlib.cm.bright(np.linspace(1, 0, len(unique_dpts)))
 colors = itertools.cycle(sns.color_palette("bright"))
-dpt2color = dict(zip(unique_dpts, colors))
-marker = itertools.cycle(('x', '+', '1', '.', '|', '3', '2'))
-
-def plot_int(x, y, ax, marker="o", label=None, color="k"):
-    interp = scipy.interpolate.interp1d
-    f = interp(x, y, kind="quadratic")
-    x_i = np.linspace(0, len(x) - 1, len(x) * 5)
-    y_i = f(x_i)
-    ax.scatter(x, y, marker=marker, label=label, color=color)
-    ax.plot(x_i, y_i, color=color)
-    return ax
+marker = itertools.cycle(("x", "+", "1", ".", "|", "3", "2"))
 
 
-fig, ax = plt.subplots(1, figsize=(10, 6))
+def compute_charge(d):
+    return np.clip(
+        d[CUM_COLUMNS + ["n_covid_occ"]].sum(axis=1).diff(1).fillna(0), 0, 1e6
+    )
+
+
+fig, ax = plt.subplots(1, figsize=(7, 4))
 # for col in CUM_COLUMNS + ["n_covid_occ"]:
-    # color = next(colors)
-    # x = np.arange(len(data))
-    # y = data[col].values
-    # plot_int(
-        # x,
-        # y,
-        # ax=ax,
-        # color=color,
-        # marker="*",
-        # label=COLUMN_TO_HUMAN_READABLE[col],
-    # )
+# color = next(colors)
+# x = np.arange(len(data))
+# y = data[col].values
+# plot_int(
+# x,
+# y,
+# ax=ax,
+# color=color,
+# marker="*",
+# label=COLUMN_TO_HUMAN_READABLE[col],
+# )
+x = np.arange(len(data.date.unique()))
 
-dfs = []
-for dpt, d in data.groupby("department"):
+for grp, d in data.groupby(grp_column):
     d = d.sort_values(by="date")
-    d["charge"] = d[CUM_COLUMNS + ["n_covid_occ"]].diff(1).fillna(0).sum(axis=1)
-    x = np.arange(len(d))
-    y = d.charge.values
-    dfs.append(d)
-    d = pd.concat(dfs).groupby("date").sum().sort_index().reset_index()
-    x = np.arange(len(d))
-    y = d.charge.values
-    plot_int(x, y, ax=ax, color=next(colors), marker=next(marker), label=dpt)
+    d["charge"] = compute_charge(d)
+    plot_int(
+        x,
+        d.charge.cumsum().values,
+        ax=ax,
+        color=next(colors),
+        marker=next(marker),
+        label=grp,
+        lw=1,
+    )
+
+ge = data.groupby("date").agg(agg).sort_index().reset_index()
+ge["charge"] = compute_charge(ge)
+
+plot_int(
+    x,
+    ge.charge.cumsum().values,
+    ax=ax,
+    color=next(colors),
+    marker=None,
+    label="Grand Est",
+    lw=1,
+)
 
 ax.set_xticks(np.arange(data.date.unique().shape[0]))
 ax.set_xticklabels(

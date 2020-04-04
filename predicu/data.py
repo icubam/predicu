@@ -1,7 +1,7 @@
 import itertools
 import json
-import pickle
 import os
+import pickle
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,40 +10,30 @@ import pandas as pd
 DEFAULT_ICUBAM_PATH = "data/all_bedcounts_2020-04-03_22h20.csv"
 DEFAULT_PRE_ICUBAM_PATH = "data/pre_icubam_data.csv"
 DEFAULT_ICU_NAME_TO_DEPARTMENT_PATH = "data/icu_name_to_department.json"
-
 CUM_COLUMNS = [
     "n_covid_deaths",
     "n_covid_healed",
     "n_covid_transfered",
     "n_covid_refused",
 ]
-
 NCUM_COLUMNS = [
     "n_covid_free",
     "n_ncovid_free",
     "n_covid_occ",
     "n_ncovid_occ",
 ]
-
 BEDCOUNT_COLUMNS = CUM_COLUMNS + NCUM_COLUMNS
-
 ALL_COLUMNS = ["icu_name", "date", "department"] + CUM_COLUMNS + NCUM_COLUMNS
-
-MAX_DAY_INCREASE = {
-    "n_covid_deaths": 5,
-    "n_covid_healed": 5,
-    "n_covid_transfered": 20,
-    "n_covid_refused": 200,
-}
 
 
 def load_all_data(
     icubam_path=DEFAULT_ICUBAM_PATH,
     pre_icubam_path=DEFAULT_PRE_ICUBAM_PATH,
-    clean=True, cache=True,
+    clean=True,
+    cache=True,
 ):
-    if cache and os.path.isfile('/tmp/predicu_cache.h5'):
-        return pd.read_hdf('/tmp/predicu_cache.h5')
+    if cache and os.path.isfile("/tmp/predicu_cache.h5"):
+        return pd.read_hdf("/tmp/predicu_cache.h5")
     pre_icubam = load_pre_icubam_data(pre_icubam_path)
     icubam = format_data(
         load_data_file(icubam_path).rename(columns={"create_date": "date"})
@@ -56,7 +46,7 @@ def load_all_data(
     if clean:
         d = clean_data(d)
     d = d.sort_values(by=["date", "icu_name"])
-    d.to_hdf('/tmp/predicu_cache.h5', 'values')
+    d.to_hdf("/tmp/predicu_cache.h5", "values")
     return d
 
 
@@ -160,49 +150,6 @@ def aggregate_multiple_inputs(d):
         res_dfs.append(dg.reset_index())
     return pd.concat(res_dfs)
 
-    agg = {col: "last" for col in CUM_COLUMNS}
-    agg.update({col: "last" for col in ALL_COLUMNS if col not in CUM_COLUMNS})
-    res_dfs = []
-    for (icu_name, date), dg in d.groupby(["icu_name", "date"]):
-        if len(dg) < 3:
-            res_dfs.append(dg)
-        else:
-            res_dfs.append(
-                dg.set_index("datetime")
-                .groupby(pd.Grouper(freq="15Min"))
-                .agg(agg)
-                .dropna()
-                .reset_index()
-            )
-    return pd.concat(res_dfs)
-
-
-def fix_noncum_inputs(d, n_noncum_error_threshold=5):
-    res_dfs = []
-    detected_noncum_errors = dict()
-    for col in CUM_COLUMNS:
-        detected_noncum_errors[col] = {
-            icu_name
-            for icu_name in d.icu_name.unique()
-            if (
-                d.loc[d.icu_name == icu_name]
-                .set_index("datetime")
-                .sort_index()[col]
-                .diff(1)
-                < 0
-            ).sum()
-            > n_noncum_error_threshold
-        }
-    for icu_name, dg in d.groupby("icu_name"):
-        dg = dg.reset_index().sort_values(by="datetime")
-        for col in detected_noncum_errors:
-            if icu_name in detected_noncum_errors[col]:
-                diffs = dg[col].diff(1) / dg.datetime.diff(1).days
-                mask = diffs > MAX_DAY_INCREASE[col]
-                dg.loc[~mask, col] = dg.loc[~mask, col].cumsum()
-        res_dfs.append(dg)
-    return pd.concat(res_dfs)
-
 
 def get_clean_daily_values(d):
     icu_name_to_department = load_icu_name_to_department()
@@ -267,3 +214,7 @@ def load_department_population():
             name=None, index=False
         )
     )
+
+
+DEPARTMENTS = sorted(list(set(list(load_icu_name_to_department().values()))))
+DEPARTMENTS_GRAND_EST = sorted(load_pre_icubam_data().icu_name.unique())
