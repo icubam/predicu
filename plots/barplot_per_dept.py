@@ -7,6 +7,7 @@ import matplotlib.patches
 import matplotlib.pyplot as plt
 import matplotlib.style
 import numpy as np
+import pandas as pd
 import seaborn as sns
 
 import predicu.data
@@ -16,6 +17,7 @@ import tikzplotlib
 matplotlib.style.use("seaborn-dark")
 
 data = predicu.data.load_all_data()
+data = data.loc[data.datetime < pd.to_datetime("2020-04-04")]
 data = data.loc[data.icu_name.isin(predicu.data.ICU_NAMES_GRAND_EST)]
 data = data.groupby(["date", "department"]).agg(
     {col: "sum" for col in predicu.data.BEDCOUNT_COLUMNS}
@@ -29,11 +31,11 @@ barplot_columns = [
     "n_covid_deaths",
     "n_covid_healed",
     "n_covid_transfered",
-    "n_covid_refused",
+    # "n_covid_refused",
     "n_covid_occ",
 ]
-data['total'] = data[barplot_columns].sum(axis=1)
-data = data.sort_values(by='total', ascending=False)
+data["total"] = data[barplot_columns].sum(axis=1)
+data = data.sort_values(by="total", ascending=False)
 
 
 fig, ax = plt.subplots(1, figsize=(8, 8))
