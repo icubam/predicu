@@ -50,9 +50,9 @@ def load_all_data(
     if clean:
         d = clean_data(d)
     d = d.sort_values(by=["date", "icu_name"])
+    d = d.loc[d.date < pd.to_datetime("2020-04-05").date()]
     if cache and clean:
         d.to_hdf("/tmp/predicu_cache.h5", "values")
-    return d.loc[d.date < pd.to_datetime("2020-04-05")]
     return d
 
 
@@ -119,10 +119,13 @@ def clean_data(d):
         a_min=0,
         a_max=None,
     )
+    icu_to_first_input_date = dict(
+        d.groupby("icu_name")[["date"]].min().itertuples(name=None)
+    )
     d = aggregate_multiple_inputs(d)
     # d = fix_noncum_inputs(d)
     d = get_clean_daily_values(d)
-    d = spread_cum_jumps(d)
+    # d = spread_cum_jumps(d, icu_to_first_input_date)
     d = d[ALL_COLUMNS]
     return d
 
@@ -208,17 +211,15 @@ def get_clean_daily_values(d):
     return pd.DataFrame(clean_data_points)
 
 
-def spread_cum_jumps(d):
+def spread_cum_jumps(d, icu_to_first_input_date):
     assert np.all(d.date.values == d.datetime.values)
-    icu_to_first_input_date = dict(
-        d.groupby("icu_name")[["date"]].min().itertuples(name=None)
-    )
     date_begin_transfered_refused = pd.to_datetime("2020-03-25").date()
     dfs = []
     for icu_name, dg in d.groupby("icu_name"):
         fid = icu_to_first_input_date[icu_name]
         dg = dg.sort_values(by="date")
         dg = dg.reset_index()
+        already_fixed_col = set()
         for switch_point, cols in (
             (icu_to_first_input_date[icu_name], CUM_COLUMNS),
             (
@@ -226,24 +227,33 @@ def spread_cum_jumps(d):
                 ["n_covid_transfered", "n_covid_refused"],
             ),
         ):
-            beg = max(dg.date.min(), switch_point - pd.Timedelta("3D"),)
-            end = min(dg.date.max(), switch_point + pd.Timedelta("3D"),)
+            beg = max(dg.date.min(), switch_point - pd.Timedelta("2D"),)
+            end = min(dg.date.max(), switch_point + pd.Timedelta("2D"),)
             for col in cols:
+                if col in already_fixed_col:
+                    continue
                 beg_val = dg.loc[dg.date == beg, col].values[0]
                 end_val = dg.loc[dg.date == end, col].values[0]
                 diff = end_val - beg_val
                 if diff >= SPREAD_CUM_JUMPS_MAX_JUMP[col]:
-                    spread_value = diff // (end - beg).days
-                    remaining = diff % (end - beg).days
-                    spread_range = pd.date_range(fid, end, freq="1D").date
+                    spread_beg = dg.date.min()
+                    spread_end = end
+                    spread_range = pd.date_range(
+                        spread_beg, spread_end, freq="1D"
+                    ).date
+                    spread_value = diff // (spread_end - spread_beg).days
+                    remaining = diff % (spread_end - spread_beg).days
                     dg.loc[dg.date.isin(spread_range), col] = np.clip(
                         np.cumsum(np.repeat(spread_value, len(spread_range))),
-                        end_val, a_max=None
+                        a_min=0,
+                        a_max=end_val,
                     )
                     dg.loc[dg.date == end, col] = np.clip(
                         dg.loc[dg.date == end, col].values[0] + remaining,
-                        end_val, a_max=None,
+                        a_min=0,
+                        a_max=end_val,
                     )
+                    already_fixed_col.add(col)
         dfs.append(dg)
     return pd.concat(dfs)
 
@@ -279,6 +289,47 @@ def load_department_population():
     )
 
 
+def load_france_departments():
+    return pd.read_json("data/france_departments.json")
+
+
+def load_public_data():
+    d = pd.read_csv(
+        "data/donnees-hospitalieres-covid19-2020-04-04-19h00.csv", sep=";",
+    )
+    d = d.rename(
+        columns={
+            "dep": "department_code",
+            "jour": "date",
+            "hosp": "n_hospitalised_patients",
+            "rea": "n_icu_patients",
+        }
+    )
+    d["date"] = pd.to_datetime(d["date"]).dt.date
+    return d[
+        [
+            "date",
+            "department_code",
+            "n_hospitalised_patients",
+            "n_icu_patients",
+        ]
+    ]
+
+
 DEPARTMENTS = sorted(list(set(list(load_icu_name_to_department().values()))))
 DEPARTMENTS_GRAND_EST = sorted(load_pre_icubam_data().department.unique())
 ICU_NAMES_GRAND_EST = sorted(load_pre_icubam_data().icu_name.unique())
+
+CODE_TO_DEPARTMENT = dict(
+    load_france_departments()[["departmentCode", "departmentName"]].itertuples(
+        name=None, index=False,
+    ),
+)
+DEPARTMENT_TO_CODE = dict(
+    load_france_departments()[["departmentName", "departmentCode"]].itertuples(
+        name=None, index=False,
+    ),
+)
+public_data = pd.read_csv(
+    "data/donnees-hospitalieres-covid19-2020-04-04-19h00.csv", sep=";",
+)
