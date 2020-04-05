@@ -27,27 +27,29 @@ COL_COLOR = {
     for i, col in enumerate(predicu.data.BEDCOUNT_COLUMNS + ["flow"])
 }
 
-COL_COLOR.update({
-    "n_covid_deaths": (0, 0, 0),
-    "n_covid_healed": (
-        0.00784313725490196,
-        0.6196078431372549,
-        0.45098039215686275,
-    ),
-    "n_covid_occ": (0.8, 0.47058823529411764, 0.7372549019607844),
-    "n_covid_transfered": (
-        0.00392156862745098,
-        0.45098039215686275,
-        0.6980392156862745,
-    ),
-    "n_covid_refused": (0.8352941176470589, 0.3686274509803922, 0.0),
-    "pct_deaths": (0, 0, 0),
-    "pct_healed": (
-        0.00784313725490196,
-        0.6196078431372549,
-        0.45098039215686275,
-    ),
-})
+COL_COLOR.update(
+    {
+        "n_covid_deaths": (0, 0, 0),
+        "n_covid_healed": (
+            0.00784313725490196,
+            0.6196078431372549,
+            0.45098039215686275,
+        ),
+        "n_covid_occ": (0.8, 0.47058823529411764, 0.7372549019607844),
+        "n_covid_transfered": (
+            0.00392156862745098,
+            0.45098039215686275,
+            0.6980392156862745,
+        ),
+        "n_covid_refused": (0.8352941176470589, 0.3686274509803922, 0.0),
+        "pct_deaths": (0, 0, 0),
+        "pct_healed": (
+            0.00784313725490196,
+            0.6196078431372549,
+            0.45098039215686275,
+        ),
+    }
+)
 
 DEPARTMENT_COLOR = {
     dpt: seaborn.color_palette("colorblind", len(predicu.data.DEPARTMENTS))[i]
@@ -73,6 +75,7 @@ def plot_int(
     label=None,
     color=None,
     lw=1.0,
+    ls="solid",
     s=3,
     fill_below=False,
 ):
@@ -85,5 +88,5 @@ def plot_int(
         ax.fill_between(x_i, np.zeros(len(y_i)), y_i, color=color, label=label)
         ax.plot(x_i, y_i, color="white", lw=1, ls="dashed", alpha=1.0)
     else:
-        ax.plot(x_i, y_i, color=color, lw=lw, label=label)
+        ax.plot(x_i, y_i, color=color, lw=lw, label=label, ls=ls)
     return ax

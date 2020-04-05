@@ -26,6 +26,7 @@ os.chdir("/tmp")
 subprocess.run(["pdflatex", "-pdf", os.path.basename(output_path), fig_path])
 subprocess.run(["open", "-a", "Skim", fig_path])
 subprocess.run(
-    "convert -density 300 -depth 8 -quality 85".split(" ")
-    + [fig_path, fig_path.rsplit(".", 1)[0] + ".png"]
+    "convert -density 300 -depth 8 -quality 85 "
+    "-background white -flatten".split(" ")
+    + [fig_path, fig_path.rsplit(".", 1)[0] + ".jpg"]
 )
