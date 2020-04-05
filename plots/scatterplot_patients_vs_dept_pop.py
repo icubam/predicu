@@ -2,6 +2,7 @@ import datetime
 import json
 
 import matplotlib.gridspec
+import matplotlib.lines
 import matplotlib.pyplot as plt
 import matplotlib.style
 import numpy as np
@@ -13,27 +14,70 @@ import tikzplotlib
 
 matplotlib.style.use("seaborn-darkgrid")
 
-public_data = predicu.data.load_public_data()
-
-public_data["department"] = public_data.department_code.apply(
-    predicu.data.CODE_TO_DEPARTMENT.get
+combined = predicu.data.load_combined_icubam_public()
+icubam_public_n_icu_patients_corr = (
+    combined.groupby("date")[
+        ["n_icu_patients_icubam", "n_icu_patients_public"]
+    ]
+    .corr()
+    .iloc[0::2, -1]
+    .reset_index()
+    .set_index("date")
+    .rename(
+        columns={"n_icu_patients_public": "corr_icubam_public_n_icu_patients"}
+    )
 )
-public_data = public_data.loc[
-    public_data.department.isin(predicu.data.DEPARTMENTS_GRAND_EST)
-]
-
-d = predicu.data.load_all_data()
-d = d.loc[d.icu_name.isin(predicu.data.ICU_NAMES_GRAND_EST)]
-public_data = public_data.loc[public_data.date == d.date.max()]
-d = d.groupby(["date", "department"]).sum().reset_index()
-d = d.groupby("department").last().reset_index()
-d["department_code"] = d.department.apply(predicu.data.DEPARTMENT_TO_CODE.get)
-
-__import__("pdb").set_trace()
-
-get_dpt_pop = predicu.data.load_department_population().get
+combined = combined.loc[combined.date == di.date.max()]
 
 fig, ax = plt.subplots(1, figsize=(20, 10))
+
+ax.scatter(
+    combined.department_pop,
+    combined.n_icu_patients_public,
+    label="Donnée publique",
+    s=combined.n_icu_patients_public,
+)
+ax.scatter(
+    combined.department_pop,
+    combined.n_icu_patients_icubam,
+    label="Donnée ICUBAM",
+    s=combined.n_icu_patients_icubam,
+)
+
+dept_name_pos = {
+    "Bas-Rhin": "left",
+    "Ardennes": "above",
+    "Meuse": "above",
+    "Haute-Marne": "below",
+    "Aube": "below",
+}
+
+for _, row in combined.iterrows():
+    line = matplotlib.lines.Line2D(
+        xdata=[row.department_pop, row.department_pop],
+        ydata=[row.n_icu_patients_public, row.n_icu_patients_icubam],
+    )
+    ax.add_line(line)
+    x = row.department_pop + 10000
+    y = np.abs(row.n_icu_patients_icubam + row.n_icu_patients_public) / 2
+    ha = "left"
+    if row.department in dept_name_pos:
+        if dept_name_pos[row.department] == "above":
+            x = row.department_pop
+            y = max(row.n_icu_patients_icubam, row.n_icu_patients_public) + 10
+            ha = "center"
+        elif dept_name_pos[row.department] == "left":
+            x = row.department_pop - 10000
+            ha = "right"
+        elif dept_name_pos[row.department] == "below":
+            x = row.department_pop
+            y = min(row.n_icu_patients_icubam, row.n_icu_patients_public) - 10
+            ha = "center"
+    text = ax.text(x, y, row.department)
+    text.set_horizontalalignment(ha)
+ax.set_ylabel("Patients en réanimation (total)")
+ax.set_xlabel("Habitants départementaux")
+ax.legend()
 
 # plt.show()
 # __import__("sys").exit()
@@ -46,8 +90,8 @@ extra_tikzpicture_parameters = {
 tikzplotlib.save(
     "reports/figs/scatterplot_patients_vs_dept_pop.tex",
     standalone=True,
-    axis_width="10cm",
-    axis_height="6cm",
+    axis_width="12cm",
+    axis_height="8cm",
     extra_axis_parameters=extra_axis_parameters,
     extra_tikzpicture_parameters=extra_tikzpicture_parameters,
 )

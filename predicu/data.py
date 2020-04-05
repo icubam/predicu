@@ -39,6 +39,7 @@ def load_all_data(
     pre_icubam_path=DEFAULT_PRE_ICUBAM_PATH,
     clean=True,
     cache=True,
+    spread_cum_jump_correction=False,
 ):
     if cache and os.path.isfile("/tmp/predicu_cache.h5"):
         return pd.read_hdf("/tmp/predicu_cache.h5")
@@ -48,7 +49,7 @@ def load_all_data(
     pre_icubam = pre_icubam.loc[~pre_icubam.date.isin(dates_in_both)]
     d = pd.concat([pre_icubam, icubam])
     if clean:
-        d = clean_data(d)
+        d = clean_data(d, spread_cum_jump_correction)
     d = d.sort_values(by=["date", "icu_name"])
     d = d.loc[d.date < pd.to_datetime("2020-04-05").date()]
     if cache and clean:
@@ -110,7 +111,7 @@ def format_data(d):
     return d
 
 
-def clean_data(d):
+def clean_data(d, spread_cum_jump_correction=False):
     d.loc[d.icu_name == "Mulhouse-Chir", "n_covid_healed"] = np.clip(
         (
             d.loc[d.icu_name == "Mulhouse-Chir", "n_covid_healed"]
@@ -125,7 +126,8 @@ def clean_data(d):
     d = aggregate_multiple_inputs(d)
     # d = fix_noncum_inputs(d)
     d = get_clean_daily_values(d)
-    # d = spread_cum_jumps(d, icu_to_first_input_date)
+    if spread_cum_jump_correction:
+        d = spread_cum_jumps(d, icu_to_first_input_date)
     d = d[ALL_COLUMNS]
     return d
 
@@ -297,6 +299,7 @@ def load_public_data():
     d = pd.read_csv(
         "data/donnees-hospitalieres-covid19-2020-04-04-19h00.csv", sep=";",
     )
+    d = d.loc[d.sexe == 0]
     d = d.rename(
         columns={
             "dep": "department_code",
@@ -330,6 +333,20 @@ DEPARTMENT_TO_CODE = dict(
         name=None, index=False,
     ),
 )
-public_data = pd.read_csv(
-    "data/donnees-hospitalieres-covid19-2020-04-04-19h00.csv", sep=";",
-)
+
+
+def load_combined_icubam_public():
+    get_dpt_pop = load_department_population().get
+    dp = load_public_data()
+    dp["department"] = dp.department_code.apply(CODE_TO_DEPARTMENT.get)
+    dp = dp.loc[dp.department.isin(DEPARTMENTS_GRAND_EST)]
+    di = load_all_data()
+    di = di.loc[di.icu_name.isin(ICU_NAMES_GRAND_EST)]
+    di = di.groupby(["date", "department"]).sum().reset_index()
+    di["department_code"] = di.department.apply(DEPARTMENT_TO_CODE.get)
+    di["n_icu_patients"] = di.n_covid_occ + di.n_ncovid_occ.fillna(0)
+    combined = di.merge(
+        dp, on=["department", "date"], suffixes=["_icubam", "_public"]
+    )
+    combined["department_pop"] = combined.department.apply(get_dpt_pop)
+    return combined
