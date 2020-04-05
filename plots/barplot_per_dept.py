@@ -17,7 +17,6 @@ import tikzplotlib
 matplotlib.style.use("seaborn-dark")
 
 data = predicu.data.load_all_data()
-data = data.loc[data.datetime < pd.to_datetime("2020-04-04")]
 data = data.loc[data.icu_name.isin(predicu.data.ICU_NAMES_GRAND_EST)]
 data = data.groupby(["date", "department"]).agg(
     {col: "sum" for col in predicu.data.BEDCOUNT_COLUMNS}

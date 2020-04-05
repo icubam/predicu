@@ -18,7 +18,6 @@ import tikzplotlib
 matplotlib.style.use("seaborn-darkgrid")
 
 data = predicu.data.load_all_data()
-# data = data.loc[data.datetime < pd.to_datetime('2020-04-04')]
 data = data.loc[data.icu_name.isin(predicu.data.ICU_NAMES_GRAND_EST)]
 agg = {col: "sum" for col in predicu.data.BEDCOUNT_COLUMNS}
 data = data.groupby(["date", "department"]).agg(agg)
@@ -54,6 +53,10 @@ for i, department in enumerate(sorted_depts):
         lw=1,
         fill_below=True,
     )
+    if i == 0:
+        predicu.plot.plot_int(
+            date_idx_range, y, ax=ax, color="black", label="Grand Est", lw=3,
+        )
 
 ax.set_xticks(np.arange(data.date.unique().shape[0]))
 ax.set_xticklabels(
@@ -69,6 +72,11 @@ ax.legend(
             linewidth=3,
         )
         for dpt in sorted_depts
+    ]
+    + [
+        matplotlib.patches.Patch(
+            facecolor="black", label="Grand Est", linewidth=1,
+        )
     ],
     loc="upper left",
 )

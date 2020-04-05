@@ -82,6 +82,8 @@ def main(output_dir):
     data_raw = load_all_data(clean=False, cache=False)
     data_clean = load_all_data(cache=False)
     for icu_name, dg in data_clean.groupby("icu_name"):
+        # if icu_name != "Mulhouse-Chir":
+            # continue
         path = os.path.join(output_dir, "{}.pdf".format(icu_name))
         plot_icu_values(icu_name, dg, path, data_raw)
 

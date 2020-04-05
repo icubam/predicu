@@ -16,6 +16,8 @@ COLUMN_TO_HUMAN_READABLE = {
     "n_covid_occ": "Lits Covid+ occupés",
     "n_ncovid_occ": "Lits Covid- occupés",
     "flow": "Flux total de patients",
+    "pct_deaths": "Pourcentage de décès",
+    "pct_healed": "Pourcentage de sorties",
 }
 
 COL_COLOR = {
@@ -39,6 +41,12 @@ COL_COLOR.update({
         0.6980392156862745,
     ),
     "n_covid_refused": (0.8352941176470589, 0.3686274509803922, 0.0),
+    "pct_deaths": (0, 0, 0),
+    "pct_healed": (
+        0.00784313725490196,
+        0.6196078431372549,
+        0.45098039215686275,
+    ),
 })
 
 DEPARTMENT_COLOR = {
@@ -52,7 +60,7 @@ DEPARTMENT_GRAND_EST_COLOR = {
     for i, dpt in enumerate(predicu.data.DEPARTMENTS_GRAND_EST)
 }
 
-RANDOM_MARKERS = itertools.cycle(("x", "+", "1", ".", "|", "3", "2"))
+RANDOM_MARKERS = itertools.cycle(("x", "+", ".", "|"))
 
 RANDOM_COLORS = itertools.cycle(seaborn.color_palette("colorblind", 10))
 
@@ -71,7 +79,8 @@ def plot_int(
     f = scipy.interpolate.interp1d(x, y, kind="quadratic")
     x_i = np.linspace(0, len(x) - 1, len(x) * 5)
     y_i = f(x_i)
-    # ax.scatter(x, y, marker=marker, color=color, s=s)
+    if marker is not None:
+        ax.scatter(x, y, marker=marker, color=color)
     if fill_below:
         ax.fill_between(x_i, np.zeros(len(y_i)), y_i, color=color, label=label)
         ax.plot(x_i, y_i, color="white", lw=1, ls="dashed", alpha=1.0)

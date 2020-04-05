@@ -11,6 +11,7 @@ import scipy.interpolate
 import seaborn as sns
 
 import predicu.data
+import predicu.flow
 import predicu.plot
 import tikzplotlib
 
@@ -22,39 +23,20 @@ agg = {col: "sum" for col in predicu.data.BEDCOUNT_COLUMNS}
 data = data.groupby(["date", "department"]).agg(agg)
 data = data.reset_index()
 
-
-def compute_pct_occ(d):
-    return (d["n_covid_occ"] / (d["n_covid_occ"] + d["n_covid_free"])).fillna(
-        0
-    )
-
-
-data["pct_occ"] = compute_pct_occ(data)
-
 fig, ax = plt.subplots(1, figsize=(7, 4))
-
 date_idx_range = np.arange(len(data.date.unique()))
-for department, d in data.groupby("department"):
-    d = d.sort_values(by="date")
+for department, dg in data.groupby("department"):
+    dg = dg.sort_values(by="date")
+    y = dg.n_covid_occ + dg.n_covid_transfered.diff(1).fillna(0)
     predicu.plot.plot_int(
         date_idx_range,
-        d["pct_occ"],
+        y,
         ax=ax,
         color=predicu.plot.DEPARTMENT_GRAND_EST_COLOR[department],
         label=department,
         lw=2,
+        marker=next(predicu.plot.RANDOM_MARKERS),
     )
-
-ge_pct_occ = data.groupby("date").pct_occ.mean().sort_index().values
-predicu.plot.plot_int(
-    date_idx_range,
-    ge_pct_occ,
-    ax=ax,
-    color="k",
-    marker=False,
-    label="Grand Est",
-    lw=4,
-)
 
 ax.set_xticks(np.arange(data.date.unique().shape[0]))
 ax.set_xticklabels(
@@ -65,20 +47,15 @@ ax.legend(
     ncol=2,
     handles=[
         matplotlib.patches.Patch(
-            facecolor=predicu.plot.DEPARTMENT_GRAND_EST_COLOR[department],
-            label=department,
+            facecolor=predicu.plot.DEPARTMENT_GRAND_EST_COLOR[dpt],
+            label=dpt,
             linewidth=3,
         )
-        for department in sorted(data.department.unique())
-    ]
-    + [
-        matplotlib.patches.Patch(
-            facecolor="k", label="Grand Est", linewidth=3,
-        )
+        for dpt in sorted(data.department.unique())
     ],
-    loc="lower right",
+    loc="upper left",
 )
-# ax.set_ylabel('Pourcentage d\'occupations des lits Covid+')
+ax.set_ylabel(r'Somme lits occ. + transferts')
 # fig.tight_layout()
 # fig.savefig("fig.png")
 # plt.show()
@@ -92,9 +69,9 @@ extra_tikzpicture_parameters = {
     # r"every axis legend/.code={\let\addlegendentry\relax}"
 }
 tikzplotlib.save(
-    "reports/figs/lineplot_pct_occ.tex",
+    "reports/figs/lineplot_beds_per_dept.tex",
     standalone=True,
-    axis_width="14cm",
+    axis_width="15cm",
     axis_height="8cm",
     extra_axis_parameters=extra_axis_parameters,
     extra_tikzpicture_parameters=extra_tikzpicture_parameters,
