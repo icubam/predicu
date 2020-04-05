@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-DEFAULT_ICUBAM_PATH = "data/all_bedcounts_2020-04-04_12h01.csv"
+DEFAULT_ICUBAM_PATH = "data/all_bedcounts_2020-04-05_13h03.csv"
 DEFAULT_PRE_ICUBAM_PATH = "data/pre_icubam_data.csv"
 DEFAULT_ICU_NAME_TO_DEPARTMENT_PATH = "data/icu_name_to_department.json"
 CUM_COLUMNS = [
@@ -23,7 +23,15 @@ NCUM_COLUMNS = [
     "n_ncovid_occ",
 ]
 BEDCOUNT_COLUMNS = CUM_COLUMNS + NCUM_COLUMNS
-ALL_COLUMNS = ["icu_name", "date", "department"] + CUM_COLUMNS + NCUM_COLUMNS
+ALL_COLUMNS = (
+    ["icu_name", "date", "datetime", "department"] + CUM_COLUMNS + NCUM_COLUMNS
+)
+SPREAD_CUM_JUMPS_MAX_JUMP = {
+    "n_covid_deaths": 10,
+    "n_covid_transfered": 10,
+    "n_covid_refused": 10,
+    "n_covid_healed": 10,
+}
 
 
 def load_all_data(
@@ -35,10 +43,7 @@ def load_all_data(
     if cache and os.path.isfile("/tmp/predicu_cache.h5"):
         return pd.read_hdf("/tmp/predicu_cache.h5")
     pre_icubam = load_pre_icubam_data(pre_icubam_path)
-    icubam = format_data(
-        load_data_file(icubam_path).rename(columns={"create_date": "date"})
-    )
-    icubam = icubam.rename(columns={"create_date": "date"})
+    icubam = load_icubam_data(icubam_path)
     dates_in_both = set(icubam.date.unique()) & set(pre_icubam.date.unique())
     pre_icubam = pre_icubam.loc[~pre_icubam.date.isin(dates_in_both)]
     d = pd.concat([pre_icubam, icubam])
@@ -47,6 +52,14 @@ def load_all_data(
     d = d.sort_values(by=["date", "icu_name"])
     if cache and clean:
         d.to_hdf("/tmp/predicu_cache.h5", "values")
+    return d.loc[d.date < pd.to_datetime("2020-04-05")]
+    return d
+
+
+def load_icubam_data(icubam_path=DEFAULT_ICUBAM_PATH):
+    d = load_data_file(icubam_path)
+    d = d.rename(columns={"create_date": "date"})
+    d = format_data(d)
     return d
 
 
@@ -93,15 +106,24 @@ def format_data(d):
     d["date"] = d["datetime"].dt.date
     icu_name_to_department = load_icu_name_to_department()
     d["department"] = d.icu_name.apply(icu_name_to_department.get)
-    d = d[ALL_COLUMNS + ["datetime"]]
+    d = d[ALL_COLUMNS]
     return d
 
 
 def clean_data(d):
+    d.loc[d.icu_name == "Mulhouse-Chir", "n_covid_healed"] = np.clip(
+        (
+            d.loc[d.icu_name == "Mulhouse-Chir", "n_covid_healed"]
+            - d.loc[d.icu_name == "Mulhouse-Chir", "n_covid_transfered"]
+        ).values,
+        a_min=0,
+        a_max=None,
+    )
     d = aggregate_multiple_inputs(d)
     # d = fix_noncum_inputs(d)
     d = get_clean_daily_values(d)
-    d = d[ALL_COLUMNS + ["datetime"]]
+    d = spread_cum_jumps(d)
+    d = d[ALL_COLUMNS]
     return d
 
 
@@ -186,6 +208,46 @@ def get_clean_daily_values(d):
     return pd.DataFrame(clean_data_points)
 
 
+def spread_cum_jumps(d):
+    assert np.all(d.date.values == d.datetime.values)
+    icu_to_first_input_date = dict(
+        d.groupby("icu_name")[["date"]].min().itertuples(name=None)
+    )
+    date_begin_transfered_refused = pd.to_datetime("2020-03-25").date()
+    dfs = []
+    for icu_name, dg in d.groupby("icu_name"):
+        fid = icu_to_first_input_date[icu_name]
+        dg = dg.sort_values(by="date")
+        dg = dg.reset_index()
+        for switch_point, cols in (
+            (icu_to_first_input_date[icu_name], CUM_COLUMNS),
+            (
+                date_begin_transfered_refused,
+                ["n_covid_transfered", "n_covid_refused"],
+            ),
+        ):
+            beg = max(dg.date.min(), switch_point - pd.Timedelta("3D"),)
+            end = min(dg.date.max(), switch_point + pd.Timedelta("3D"),)
+            for col in cols:
+                beg_val = dg.loc[dg.date == beg, col].values[0]
+                end_val = dg.loc[dg.date == end, col].values[0]
+                diff = end_val - beg_val
+                if diff >= SPREAD_CUM_JUMPS_MAX_JUMP[col]:
+                    spread_value = diff // (end - beg).days
+                    remaining = diff % (end - beg).days
+                    spread_range = pd.date_range(fid, end, freq="1D").date
+                    dg.loc[dg.date.isin(spread_range), col] = np.clip(
+                        np.cumsum(np.repeat(spread_value, len(spread_range))),
+                        end_val, a_max=None
+                    )
+                    dg.loc[dg.date == end, col] = np.clip(
+                        dg.loc[dg.date == end, col].values[0] + remaining,
+                        end_val, a_max=None,
+                    )
+        dfs.append(dg)
+    return pd.concat(dfs)
+
+
 def load_data_file(data_path):
     ext = data_path.rsplit(".", 1)[-1]
     if ext == "pickle":
@@ -205,6 +267,7 @@ def load_icu_name_to_department(
 ):
     with open(icu_name_to_department_path) as f:
         icu_name_to_department = json.load(f)
+    icu_name_to_department["St-Dizier"] = "Haute-Marne"
     return icu_name_to_department
 
 
