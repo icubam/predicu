@@ -19,7 +19,7 @@ def plot(**plot_args):
         if ax0 is None:
             ax0 = ax
         for g, d in data.groupby("department"):
-            d = d.groupby("date")[col].sum().sort_index().cumsum()
+            d = d.groupby("date")[col].sum().sort_index()
             ax.plot(np.arange(d.values.shape[0]), d.values, label=g)
         ax.set_title(predicu.plot.COLUMN_TO_HUMAN_READABLE[col])
         dates = sorted(list(data.date.unique()))
@@ -30,7 +30,8 @@ def plot(**plot_args):
             fontdict={"fontsize": "x-small"},
         )
     ax0.legend(ncol=2, loc="upper left", frameon=True, fontsize="xx-small")
-    fig.subplots_adjust(hspace=0.7)
+    fig.tight_layout()
+    fig.subplots_adjust(hspace=0.2)
     tikzplotlib_kwargs = dict(
         extra_groupstyle_parameters={
             r"horizontal sep=0.2cm",
