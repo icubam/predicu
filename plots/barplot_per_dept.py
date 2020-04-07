@@ -14,7 +14,7 @@ import predicu.data
 import predicu.plot
 import tikzplotlib
 
-matplotlib.style.use("seaborn-dark")
+matplotlib.style.use("seaborn-white")
 
 data = predicu.data.load_all_data()
 data = data.loc[data.icu_name.isin(predicu.data.ICU_NAMES_GRAND_EST)]
@@ -47,7 +47,7 @@ for i, (_, row) in enumerate(data.iterrows()):
             height=1,
             fill=True,
             linewidth=0.7,
-            edgecolor="white",
+            edgecolor="black",
             facecolor=predicu.plot.COL_COLOR[col],
             label=predicu.plot.COLUMN_TO_HUMAN_READABLE[col],
         )
@@ -59,7 +59,7 @@ ax.set_yticks(np.arange(len(data)) + 0.5)
 ax.set_yticklabels(data.department)
 xticks = np.arange(0, data[barplot_columns].sum(axis=1).max(), 100)
 for xtick in xticks:
-    ax.axvline(x=xtick, ls="dashed", c="w")
+    ax.axvline(x=xtick, ls="dashed", c="k", alpha=0.2)
 ax.set_xticks(xticks)
 ax.legend(
     handles=[

@@ -14,7 +14,7 @@ import predicu.data
 import predicu.plot
 import tikzplotlib
 
-matplotlib.style.use("seaborn-dark")
+matplotlib.style.use("seaborn-white")
 
 data = predicu.data.load_all_data()
 data = data.loc[data.icu_name.isin(predicu.data.ICU_NAMES_GRAND_EST)]
@@ -45,7 +45,7 @@ for i, (date, d_date) in enumerate(
             height=height,
             fill=True,
             linewidth=0.7,
-            edgecolor="white",
+            edgecolor="black",
             facecolor=predicu.plot.DEPARTMENT_GRAND_EST_COLOR[department],
             label=department,
         )

@@ -15,7 +15,7 @@ import predicu.flow
 import predicu.plot
 import tikzplotlib
 
-matplotlib.style.use("seaborn-darkgrid")
+matplotlib.style.use("seaborn-whitegrid")
 
 data = predicu.data.load_all_data()
 data = data.loc[data.icu_name.isin(predicu.data.ICU_NAMES_GRAND_EST)]
@@ -27,7 +27,7 @@ fig, ax = plt.subplots(1, figsize=(7, 4))
 date_idx_range = np.arange(len(data.date.unique()))
 for department, dg in data.groupby("department"):
     dg = dg.sort_values(by="date")
-    y = dg.n_covid_occ + dg.n_covid_transfered.diff(1).fillna(0)
+    y = dg.n_covid_occ # + dg.n_covid_transfered.diff(1).fillna(0)
     predicu.plot.plot_int(
         date_idx_range,
         y,
