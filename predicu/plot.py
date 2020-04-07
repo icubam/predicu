@@ -26,7 +26,6 @@ COL_COLOR = {
     )[i]
     for i, col in enumerate(predicu.data.BEDCOUNT_COLUMNS + ["flow"])
 }
-
 COL_COLOR.update(
     {
         "n_covid_deaths": (0, 0, 0),
@@ -50,7 +49,6 @@ COL_COLOR.update(
         ),
     }
 )
-
 DEPARTMENT_COLOR = {
     dpt: seaborn.color_palette("colorblind", len(predicu.data.DEPARTMENTS))[i]
     for i, dpt in enumerate(predicu.data.DEPARTMENTS)
@@ -61,9 +59,7 @@ DEPARTMENT_GRAND_EST_COLOR = {
     )[i]
     for i, dpt in enumerate(predicu.data.DEPARTMENTS_GRAND_EST)
 }
-
 RANDOM_MARKERS = itertools.cycle(("x", "+", ".", "|"))
-
 RANDOM_COLORS = itertools.cycle(seaborn.color_palette("colorblind", 10))
 
 

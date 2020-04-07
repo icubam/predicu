@@ -1,5 +1,6 @@
 import itertools
 import json
+import logging
 import os
 import pickle
 
@@ -53,12 +54,12 @@ SPREAD_CUM_JUMPS_MAX_JUMP = {
 
 
 def load_all_data(
-    clean=True, cache=True, spread_cum_jump_correction=False,
+    clean=True, cache=False, spread_cum_jump_correction=False, api_key=None,
 ):
     if cache and os.path.isfile(DATA_PATHS["icubam_cache"]):
         return pd.read_hdf(DATA_PATHS["icubam_cache"])
     pre_icubam = load_pre_icubam_data()
-    icubam = load_icubam_data()
+    icubam = load_icubam_data(api_key=api_key)
     dates_in_both = set(icubam.date.unique()) & set(pre_icubam.date.unique())
     pre_icubam = pre_icubam.loc[~pre_icubam.date.isin(dates_in_both)]
     d = pd.concat([pre_icubam, icubam])
@@ -71,8 +72,12 @@ def load_all_data(
     return d
 
 
-def load_icubam_data():
-    d = load_data_file(DATA_PATHS["icubam"])
+def load_icubam_data(api_key):
+    if api_key is None:
+        d = load_data_file(DATA_PATHS["icubam"])
+    else:
+        url = "https://prod.icubam.net/db/all_bedcounts?format=csv&API_KEY={}"
+        d = pd.read_csv(url.format(api_key))
     d = d.rename(columns={"create_date": "date"})
     d = format_data(d)
     return d
@@ -342,12 +347,12 @@ DEPARTMENT_TO_CODE = dict(
 DEPARTMENT_POPULATION = load_department_population()
 
 
-def load_combined_icubam_public():
+def load_combined_icubam_public(api_key=None):
     get_dpt_pop = load_department_population().get
     dp = load_public_data()
     dp["department"] = dp.department_code.apply(CODE_TO_DEPARTMENT.get)
     dp = dp.loc[dp.department.isin(DEPARTMENTS_GRAND_EST)]
-    di = load_all_data()
+    di = load_all_data(api_key=api_key)
     di = di.loc[di.icu_name.isin(ICU_NAMES_GRAND_EST)]
     di = di.groupby(["date", "department"]).sum().reset_index()
     di["department_code"] = di.department.apply(DEPARTMENT_TO_CODE.get)
