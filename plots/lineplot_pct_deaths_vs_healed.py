@@ -14,7 +14,7 @@ import predicu.data
 import predicu.plot
 import tikzplotlib
 
-matplotlib.style.use("seaborn-darkgrid")
+matplotlib.style.use("seaborn-whitegrid")
 
 data = predicu.data.load_all_data()
 data = data.loc[data.icu_name.isin(predicu.data.ICU_NAMES_GRAND_EST)]

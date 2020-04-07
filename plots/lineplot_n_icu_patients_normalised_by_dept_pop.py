@@ -14,7 +14,7 @@ import predicu.data
 import predicu.plot
 import tikzplotlib
 
-matplotlib.style.use("seaborn-darkgrid")
+matplotlib.style.use("seaborn-whitegrid")
 
 d = predicu.data.load_combined_icubam_public()
 
