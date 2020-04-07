@@ -1,3 +1,4 @@
+import datetime
 import itertools
 
 import matplotlib.cm
@@ -10,11 +11,11 @@ import pandas as pd
 import scipy.interpolate
 import seaborn as sns
 
-import tikzplotlib
 import predicu.data
 import predicu.plot
+import tikzplotlib
 
-matplotlib.style.use("seaborn-darkgrid")
+matplotlib.style.use("seaborn-whitegrid")
 
 data = predicu.data.load_all_data()
 data = data.loc[data.icu_name.isin(predicu.data.ICU_NAMES_GRAND_EST)]
@@ -26,7 +27,23 @@ n_transfered = (
 n_tot = n_occ + n_free
 n_req = n_occ + n_transfered
 fig, ax = plt.subplots(1, figsize=(18, 12))
-x = np.arange(len(n_req))
+
+x_icubam_beg = np.argwhere(
+    np.sort(data.date.unique()) == datetime.date(2020, 3, 25)
+).flatten()[0]
+ax.axvline(x=x_icubam_beg, c="red", lw=7, ls="dashed")
+text = ax.text(
+    x=x_icubam_beg - 0.5,
+    y=n_tot.max() * 0.95,
+    s=r"Début \texttt{ICUBAM}",
+    fontsize="xx-large",
+    fontweight="bold",
+    color="red",
+)
+text.set_horizontalalignment("right")
+
+date_range_idx = np.arange(len(n_req))
+
 
 def plot_int(x, y, ax, marker="o", label=None, color="k", lw=1):
     interp = scipy.interpolate.interp1d
@@ -39,7 +56,7 @@ def plot_int(x, y, ax, marker="o", label=None, color="k", lw=1):
 
 
 ax = plot_int(
-    x,
+    date_range_idx,
     n_tot.values,
     ax=ax,
     color=next(predicu.plot.RANDOM_COLORS),
@@ -48,7 +65,7 @@ ax = plot_int(
     lw=2,
 )
 ax = plot_int(
-    x,
+    date_range_idx,
     n_req.values,
     ax=ax,
     color=next(predicu.plot.RANDOM_COLORS),
@@ -57,7 +74,7 @@ ax = plot_int(
     lw=2,
 )
 ax = plot_int(
-    x,
+    date_range_idx,
     n_occ.values,
     ax=ax,
     color=next(predicu.plot.RANDOM_COLORS),
@@ -68,7 +85,7 @@ ax = plot_int(
 # n_transfered.plot(ax=ax, label="Transfered")
 # n_transf
 ax.set_ylabel(r"Nombre de lits")
-ax.legend(loc='lower right')
+ax.legend(loc="lower right")
 ax.set_xticks(np.arange(data.date.unique().shape[0]))
 ax.set_xticklabels(
     [date.strftime("%d-%m") for date in sorted(data.date.unique())],

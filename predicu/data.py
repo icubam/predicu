@@ -3,13 +3,31 @@ import json
 import os
 import pickle
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-DEFAULT_ICUBAM_PATH = "data/all_bedcounts_2020-04-05_13h03.csv"
-DEFAULT_PRE_ICUBAM_PATH = "data/pre_icubam_data.csv"
-DEFAULT_ICU_NAME_TO_DEPARTMENT_PATH = "data/icu_name_to_department.json"
+BASE_PATH = os.path.dirname(__file__)
+
+
+def get_cache_path(path):
+    return os.path.join(
+        os.path.dirname(path), "__cache__" + os.path.basename(path),
+    )
+
+
+DATA_PATHS = {
+    "icubam": "data/all_bedcounts_2020-04-07_01h01.csv",
+    "public": "data/donnees-hospitalieres-covid19-2020-04-06-19h00.csv",
+    "icu_name_to_department": "data/icu_name_to_department.json",
+    "pre_icubam": "data/pre_icubam_data.csv",
+    "department_population": "data/department_population.csv",
+    "departments": "data/france_departments.json",
+}
+DATA_PATHS["icubam_cache"] = get_cache_path(DATA_PATHS["icubam"])
+
+for key, path in DATA_PATHS.items():
+    DATA_PATHS[key] = os.path.join(BASE_PATH, path)
+
 CUM_COLUMNS = [
     "n_covid_deaths",
     "n_covid_healed",
@@ -35,37 +53,33 @@ SPREAD_CUM_JUMPS_MAX_JUMP = {
 
 
 def load_all_data(
-    icubam_path=DEFAULT_ICUBAM_PATH,
-    pre_icubam_path=DEFAULT_PRE_ICUBAM_PATH,
-    clean=True,
-    cache=True,
-    spread_cum_jump_correction=False,
+    clean=True, cache=True, spread_cum_jump_correction=False,
 ):
-    if cache and os.path.isfile("/tmp/predicu_cache.h5"):
-        return pd.read_hdf("/tmp/predicu_cache.h5")
-    pre_icubam = load_pre_icubam_data(pre_icubam_path)
-    icubam = load_icubam_data(icubam_path)
+    if cache and os.path.isfile(DATA_PATHS["icubam_cache"]):
+        return pd.read_hdf(DATA_PATHS["icubam_cache"])
+    pre_icubam = load_pre_icubam_data()
+    icubam = load_icubam_data()
     dates_in_both = set(icubam.date.unique()) & set(pre_icubam.date.unique())
     pre_icubam = pre_icubam.loc[~pre_icubam.date.isin(dates_in_both)]
     d = pd.concat([pre_icubam, icubam])
     if clean:
         d = clean_data(d, spread_cum_jump_correction)
     d = d.sort_values(by=["date", "icu_name"])
-    d = d.loc[d.date < pd.to_datetime("2020-04-05").date()]
+    d = d.loc[d.date < pd.to_datetime("2020-04-07").date()]
     if cache and clean:
-        d.to_hdf("/tmp/predicu_cache.h5", "values")
+        d.to_hdf(DATA_PATHS["icubam_cache"], "values")
     return d
 
 
-def load_icubam_data(icubam_path=DEFAULT_ICUBAM_PATH):
-    d = load_data_file(icubam_path)
+def load_icubam_data():
+    d = load_data_file(DATA_PATHS["icubam"])
     d = d.rename(columns={"create_date": "date"})
     d = format_data(d)
     return d
 
 
-def load_pre_icubam_data(pre_icubam_path=DEFAULT_PRE_ICUBAM_PATH):
-    d = load_data_file(pre_icubam_path)
+def load_pre_icubam_data():
+    d = load_data_file(DATA_PATHS["pre_icubam"])
     d = d.rename(
         columns={
             "Hopital": "icu_name",
@@ -183,7 +197,6 @@ def get_clean_daily_values(d):
     dates = sorted(list(d.date.unique()))
     icu_names = sorted(list(d.icu_name.unique()))
     clean_data_points = list()
-    prev_ncum_vals = dict()
     per_icu_prev_data_point = dict()
     for date, icu_name in itertools.product(dates, icu_names):
         sd = d.loc[(d.date == date) & (d.icu_name == icu_name)]
@@ -204,7 +217,6 @@ def get_clean_daily_values(d):
                 }
             )
         if len(sd) > 0:
-            new_ncum_vals = {col: sd[col].iloc[-1] for col in NCUM_COLUMNS}
             new_data_point.update(
                 {col: sd[col].iloc[-1] for col in BEDCOUNT_COLUMNS}
             )
@@ -218,7 +230,6 @@ def spread_cum_jumps(d, icu_to_first_input_date):
     date_begin_transfered_refused = pd.to_datetime("2020-03-25").date()
     dfs = []
     for icu_name, dg in d.groupby("icu_name"):
-        fid = icu_to_first_input_date[icu_name]
         dg = dg.sort_values(by="date")
         dg = dg.reset_index()
         already_fixed_col = set()
@@ -274,10 +285,8 @@ def load_data_file(data_path):
     return d
 
 
-def load_icu_name_to_department(
-    icu_name_to_department_path=DEFAULT_ICU_NAME_TO_DEPARTMENT_PATH,
-):
-    with open(icu_name_to_department_path) as f:
+def load_icu_name_to_department():
+    with open(DATA_PATHS["icu_name_to_department"]) as f:
         icu_name_to_department = json.load(f)
     icu_name_to_department["St-Dizier"] = "Haute-Marne"
     return icu_name_to_department
@@ -285,20 +294,18 @@ def load_icu_name_to_department(
 
 def load_department_population():
     return dict(
-        pd.read_csv("data/department_population.csv").itertuples(
+        pd.read_csv(DATA_PATHS["department_population"]).itertuples(
             name=None, index=False
         )
     )
 
 
 def load_france_departments():
-    return pd.read_json("data/france_departments.json")
+    return pd.read_json(DATA_PATHS["departments"])
 
 
 def load_public_data():
-    d = pd.read_csv(
-        "data/donnees-hospitalieres-covid19-2020-04-04-19h00.csv", sep=";",
-    )
+    d = pd.read_csv(DATA_PATHS["public"], sep=";",)
     d = d.loc[d.sexe == 0]
     d = d.rename(
         columns={
@@ -322,7 +329,6 @@ def load_public_data():
 DEPARTMENTS = sorted(list(set(list(load_icu_name_to_department().values()))))
 DEPARTMENTS_GRAND_EST = sorted(load_pre_icubam_data().department.unique())
 ICU_NAMES_GRAND_EST = sorted(load_pre_icubam_data().icu_name.unique())
-
 CODE_TO_DEPARTMENT = dict(
     load_france_departments()[["departmentCode", "departmentName"]].itertuples(
         name=None, index=False,
@@ -331,8 +337,9 @@ CODE_TO_DEPARTMENT = dict(
 DEPARTMENT_TO_CODE = dict(
     load_france_departments()[["departmentName", "departmentCode"]].itertuples(
         name=None, index=False,
-    ),
+    )
 )
+DEPARTMENT_POPULATION = load_department_population()
 
 
 def load_combined_icubam_public():
