@@ -35,8 +35,3 @@ jobs:
         set -xe
         pip install pytest
         python -m pytest
-    - name: Make plots
-      shell: bash -l {0}
-      run: |
-        set -xe
-        make plots

@@ -18,7 +18,7 @@ def get_cache_path(path):
 
 DATA_PATHS = {
     "icubam": "data/all_bedcounts_2020-04-07_01h01.csv",
-    "public": "data/donnees-hospitalieres-covid19-2020-04-06-19h00.csv",
+    "public": "data/donnees-hospitalieres-covid19-2020-04-04-19h00.csv",
     "icu_name_to_department": "data/icu_name_to_department.json",
     "pre_icubam": "data/pre_icubam_data.csv",
     "department_population": "data/department_population.csv",
