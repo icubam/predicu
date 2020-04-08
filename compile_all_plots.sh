@@ -8,5 +8,6 @@ for file in `ls predicu/plots/*.py`; do
         echo "${GREEN}compiled plot $file${NC}"
     else
         echo "${RED}FAILED $file${NC}"
+	exit 1
     fi
 done
