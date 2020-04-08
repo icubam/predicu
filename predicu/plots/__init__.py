@@ -1,4 +1,6 @@
 import os
+from typing import Optional, List
+import logging
 
 import matplotlib.style
 
@@ -33,3 +35,30 @@ def plot(plot_name, **plot_args):
         )
     else:
         raise ValueError(f"Unknown output type: {output_type}")
+
+
+def generate_plots(
+    plots: Optional[List[str]] = None,
+    matplotlib_style: str = "seaborn-whitegrid",
+    api_key: Optional[str] = None,
+    output_type: str = "png",
+    output_dir: str = "/tmp/",
+):
+    # Note: the default values here should match the defaults in CLI below.
+    if plots is None:
+        plots = PLOTS
+
+    plots_unknown = set(plots).difference(PLOTS)
+    if plots_unknown:
+        raise ValueError(
+            "Unknown plot(s): {}".format(", ".join(plots_unknown))
+        )
+    for name in sorted(plots):
+        logging.info("generating plot %s in %s" % (name, output_dir))
+        plot(
+            name,
+            api_key=api_key,
+            matplotlib_style=matplotlib_style,
+            output_dir=output_dir,
+            output_type=output_type,
+        )
