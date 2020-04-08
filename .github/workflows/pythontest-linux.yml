@@ -22,6 +22,7 @@ jobs:
       run: |
         which python
         pip --version
+        pip install wheel
         pip install -r requirements.txt
         pip install -e .
         pip install pytest
