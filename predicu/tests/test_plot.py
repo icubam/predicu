@@ -1,5 +1,6 @@
 import pytest
 import os
+from pathlib import Path
 
 from predicu.plots.__main__ import generate_plots
 import predicu.plots
@@ -23,3 +24,6 @@ def test_generate_plots(name, tmpdir, monkeypatch):
         "tests/data/fake_all_bedcounts_2020-04-08_16h41.csv"),
     )
     generate_plots(plots=[name], output_dir=output_dir)
+
+    assert (Path(output_dir) / (name + '.png')).exists()
+
