@@ -34,4 +34,4 @@ jobs:
       run: |
         set -xe
         pip install pytest
-        python -m pytest
+        python -m pytest -v
