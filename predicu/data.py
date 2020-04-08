@@ -71,6 +71,7 @@ def load_all_data(
         d = clean_data(d, spread_cum_jump_correction)
     d = d.sort_values(by=["date", "icu_name"])
     if max_date is not None:
+        logging.info("data loaded's max date will be %s (excluded)" % max_date)
         d = d.loc[d.date < pd.to_datetime(max_date).date()]
     if cache and clean:
         d.to_hdf(DATA_PATHS["icubam_cache"], "values")
