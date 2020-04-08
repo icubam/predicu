@@ -20,8 +20,12 @@ def plot(plot_name, **plot_args):
     fig, tikzplotlib_kwargs = plot_fun(api_key=plot_args["api_key"])
     output_type = plot_args["output_type"]
     if plot_args["output_type"] == "tex":
+        output_path = os.path.join(plot_args["output_dir"], f"{plot_name}.tex")
         __import__("tikzplotlib").save(
-            fig, **tikzplotlib_kwargs, standalone=True
+            filepath=output_path,
+            figure=fig,
+            **tikzplotlib_kwargs,
+            standalone=True,
         )
     elif output_type in ["png", "pdf"]:
         fig.savefig(
