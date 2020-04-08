@@ -1,40 +1,6 @@
 import argparse
-import logging
-from typing import Optional, List
 
-import matplotlib
-import matplotlib.style
-
-import predicu.data
-import predicu.plot
-import predicu.plots
-
-
-def generate_plots(
-    plots: Optional[List[str]] = None,
-    matplotlib_style: str = "seaborn-whitegrid",
-    api_key: Optional[str] = None,
-    output_type: str = "png",
-    output_dir: str = "/tmp/",
-):
-    # Note: the default values here should match the defaults in CLI below.
-    if plots is None:
-        plots = predicu.plots.PLOTS
-
-    plots_unknown = set(plots).difference(predicu.plots.PLOTS)
-    if plots_unknown:
-        raise ValueError(
-            "Unknown plot(s): {}".format(", ".join(plots_unknown))
-        )
-    for plot in sorted(plots):
-        logging.info("generating plot %s in %s" % (plot, output_dir))
-        predicu.plots.plot(
-            plot,
-            api_key=api_key,
-            matplotlib_style=matplotlib_style,
-            output_dir=output_dir,
-            output_type=output_type,
-        )
+from predicu.plots import generate_plots
 
 
 if __name__ == "__main__":
