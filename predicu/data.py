@@ -225,7 +225,7 @@ def get_clean_daily_values(d):
         new_data_point = {
             "date": date,
             "icu_name": icu_name,
-            "department": icu_name_to_department.get(icu_name, 'NA'),
+            "department": icu_name_to_department[icu_name],
             "datetime": date,
         }
         new_data_point.update({col: 0 for col in CUM_COLUMNS})
