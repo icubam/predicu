@@ -27,7 +27,7 @@ def generate_plots(
             "Unknown plot(s): {}".format(", ".join(plots_unknown))
         )
     for plot in sorted(plots):
-        logging.info("generating plot %s in %s" % (plot, "output_dir"))
+        logging.info("generating plot %s in %s" % (plot, output_dir))
         predicu.plots.plot(
             plot,
             api_key=api_key,
