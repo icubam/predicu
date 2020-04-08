@@ -3,7 +3,7 @@ GREEN='\033[0;32m'
 NC='\033[0m'
 
 rm -f /tmp/predicu_cache.h5
-for file in `ls predicu/plots/*.py`; do
+for file in `ls predicu/plots/*plot*.py`; do
     if python "$file"; then
         echo "${GREEN}compiled plot $file${NC}"
     else
