@@ -54,7 +54,11 @@ SPREAD_CUM_JUMPS_MAX_JUMP = {
 
 
 def load_all_data(
-    clean=True, cache=False, spread_cum_jump_correction=False, api_key=None,
+    clean=True,
+    cache=False,
+    spread_cum_jump_correction=False,
+    api_key=None,
+    max_date=None,
 ):
     if cache and os.path.isfile(DATA_PATHS["icubam_cache"]):
         return pd.read_hdf(DATA_PATHS["icubam_cache"])
@@ -66,7 +70,8 @@ def load_all_data(
     if clean:
         d = clean_data(d, spread_cum_jump_correction)
     d = d.sort_values(by=["date", "icu_name"])
-    d = d.loc[d.date < pd.to_datetime("2020-04-07").date()]
+    if max_date is not None:
+        d = d.loc[d.date < pd.to_datetime(max_date).date()]
     if cache and clean:
         d.to_hdf(DATA_PATHS["icubam_cache"], "values")
     return d
@@ -76,8 +81,18 @@ def load_icubam_data(api_key):
     if api_key is None:
         d = load_data_file(DATA_PATHS["icubam"])
     else:
-        url = "https://prod.icubam.net/db/all_bedcounts?format=csv&API_KEY={}"
+        url = (
+            "https://prod.icubam.net/db/"
+            "all_bedcounts?format=csv&API_KEY={}".format(api_key)
+        )
+        logging.info("downloading data from %s" % url)
         d = pd.read_csv(url.format(api_key))
+        icu_name_to_department = dict(
+            d[["icu_name", "icu_dept"]].itertuples(name=None, index=False)
+        )
+        logging.info("updating %s" % DATA_PATHS["icu_name_to_department"])
+        with open(DATA_PATHS["icu_name_to_department"], "w") as f:
+            json.dump(icu_name_to_department, f)
     d = d.rename(columns={"create_date": "date"})
     d = format_data(d)
     return d
