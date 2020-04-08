@@ -1,0 +1,31 @@
+name: Python package
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    # https://github.com/marketplace/actions/setup-miniconda
+    - uses: actions/checkout@v2
+    - uses: goanpeca/setup-miniconda@v1
+      with:
+         auto-update-conda: true
+         activate-environment: anaconda-client-env
+         python-version: 3.8
+         auto-activate-base: false
+    - name: Version info
+      run: |
+        conda info
+        python --version
+    - name: Install dependencies
+      run: |
+        which python
+        pip --version
+        pip install -r requirements.txt
+        pip install -e .
+        pip install pytest
+    - name: Test with pytest
+      run: |
+        set -x
+        pytest
