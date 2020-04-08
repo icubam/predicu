@@ -1,30 +1,6 @@
 import argparse
-import logging
 
-import matplotlib
-import matplotlib.style
-
-import predicu.data
-import predicu.plot
-import predicu.plots
-
-
-def generate_plots(**kwargs):
-    plots = predicu.plots.PLOTS if kwargs["plots"] is None else kwargs["plots"]
-    unknown_plots = [plot for plot in plots if plot not in predicu.plots.PLOTS]
-    if unknown_plots:
-        raise ValueError(
-            "Unknown plot(s): {}".format(", ".join(unknown_plots))
-        )
-    for plot in sorted(plots):
-        logging.info("generating plot %s in %s" % (plot, kwargs["output_dir"]))
-        predicu.plots.plot(
-            plot,
-            api_key=kwargs["api_key"],
-            matplotlib_style=kwargs["matplotlib_style"],
-            output_dir=kwargs["output_dir"],
-            output_type=kwargs["output_type"],
-        )
+from predicu.plots import generate_plots
 
 
 if __name__ == "__main__":
