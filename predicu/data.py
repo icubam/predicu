@@ -89,13 +89,13 @@ def load_icubam_data(api_key):
         )
         logging.info("downloading data from %s" % url)
         d = pd.read_csv(url.format(api_key))
-    icu_name_to_department = dict(
+    icu_name_to_department = load_icu_name_to_department()
+    icu_name_to_department.update(dict(
         d[["icu_name", "icu_dept"]].itertuples(name=None, index=False)
-    )
-    if api_key is not None:
-        logging.info("updating %s" % DATA_PATHS["icu_name_to_department"])
-        with open(DATA_PATHS["icu_name_to_department"], "w") as f:
-            json.dump(icu_name_to_department, f)
+    ))
+    logging.info("updating %s" % DATA_PATHS["icu_name_to_department"])
+    with open(DATA_PATHS["icu_name_to_department"], "w") as f:
+        json.dump(icu_name_to_department, f)
     d = d.rename(columns={"create_date": "date"})
     d = format_data(d, icu_name_to_department)
     return d
