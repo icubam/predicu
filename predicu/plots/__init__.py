@@ -1,7 +1,8 @@
-import os
-from typing import Optional, List
 import logging
+import os
+from typing import List, Optional
 
+import matplotlib
 import matplotlib.style
 
 PLOTS = []
@@ -18,6 +19,7 @@ def plot(plot_name, **plot_args):
     plot_fun = __import__(
         f"predicu.plots.{plot_name}", globals(), locals(), ["plot"], 0
     ).plot
+    matplotlib.use("agg")
     matplotlib.style.use(plot_args["matplotlib_style"])
     fig, tikzplotlib_kwargs = plot_fun(api_key=plot_args["api_key"])
     output_type = plot_args["output_type"]
@@ -47,7 +49,9 @@ def generate_plots(
     # Note: the default values here should match the defaults in CLI below.
     if plots is None:
         plots = PLOTS
-
+    if not os.path.isdir(output_dir):
+        logging.info("creating directory %s" % output_dir)
+        os.makedirs(output_dir)
     plots_unknown = set(plots).difference(PLOTS)
     if plots_unknown:
         raise ValueError(

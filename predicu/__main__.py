@@ -8,6 +8,9 @@ import predicu.data
 
 def export_data(args):
     output_dir = args.output_dir
+    if not os.path.isdir(output_dir):
+        logging.info("creating directory %s" % output_dir)
+        os.makedirs(output_dir)
     logging.info("exporting data to %s" % output_dir)
     if not os.path.isdir(output_dir):
         raise IOError(f"Output dir `{output_dir}' does not exist.")
