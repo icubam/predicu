@@ -5,9 +5,9 @@ import os
 import pickle
 import urllib.request
 
-from lxml import html
 import numpy as np
 import pandas as pd
+from lxml import html
 
 BASE_PATH = os.path.dirname(__file__)
 
@@ -90,9 +90,9 @@ def load_icubam_data(api_key):
         logging.info("downloading data from %s" % url)
         d = pd.read_csv(url.format(api_key))
     icu_name_to_department = load_icu_name_to_department()
-    icu_name_to_department.update(dict(
-        d[["icu_name", "icu_dept"]].itertuples(name=None, index=False)
-    ))
+    icu_name_to_department.update(
+        dict(d[["icu_name", "icu_dept"]].itertuples(name=None, index=False))
+    )
     logging.info("updating %s" % DATA_PATHS["icu_name_to_department"])
     with open(DATA_PATHS["icu_name_to_department"], "w") as f:
         json.dump(icu_name_to_department, f)
@@ -327,6 +327,7 @@ def load_france_departments():
 
 
 def load_public_data():
+    filename_prefix = "donnees-hospitalieres-covid19-2020"
     logging.info("scrapping public data")
     url = (
         "https://www.data.gouv.fr/fr/datasets/"
@@ -339,7 +340,7 @@ def load_public_data():
     elements = tree.xpath('//*[contains(@class, "resource-card")]')
     for e in elements:
         resource_name = e.xpath('//*[contains(@class, "ellipsis")]/text()')[0]
-        if resource_name.startswith("donnees-hospitalieres-covid19-2020"):
+        if resource_name.startswith(filename_prefix):
             download_url = e.xpath("//*[@download]/@href")[0]
             logging.info(
                 "found resource %s at %s" % (resource_name, download_url)
@@ -368,9 +369,9 @@ def load_public_data():
     ]
 
 
-DEPARTMENTS = sorted(list(set(list(load_icu_name_to_department().values()))))
-DEPARTMENTS_GRAND_EST = sorted(load_pre_icubam_data().department.unique())
-ICU_NAMES_GRAND_EST = sorted(load_pre_icubam_data().icu_name.unique())
+DEPARTMENTS = list(load_icu_name_to_department().values())
+DEPARTMENTS_GRAND_EST = list(load_pre_icubam_data().department.unique())
+ICU_NAMES_GRAND_EST = list(load_pre_icubam_data().icu_name.unique())
 CODE_TO_DEPARTMENT = dict(
     load_france_departments()[["departmentCode", "departmentName"]].itertuples(
         name=None, index=False,
