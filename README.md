@@ -12,35 +12,20 @@ pip install -e .
 
 ## Usage
 
-### Loading data
+### Pre-process and export data
 
-When loading data, file extensions should be either `.csv`, `.h5` or `.pickle`.
-
-#### Load ICUBAM bedcount data (starting March 25th)
-
-File extensions should be either `.csv`, `.h5` or `.pickle`.
-
-```python
-from predicu import load_icubam_data
-
-d = load_icubam_data('bedcount_2020-03-31_14h54.{csv,h5,pickle}')
+```
+python -m predicu export --output-dir <path> --api-key <key> --max-date <date>
 ```
 
-#### Load Antoine's pre-ICUBAM data (starting March 18th, ending March 25th)
 
-```python
-from predicu import load_pre_icubam_data
+### Generate all the plots
 
-d = load_pre_icubam_data('my_data_file.{csv,h5,pickle}')
 ```
-
-#### Load all data
-
-```python
-from predicu import load_all_data
-
-d = load_all_data(
-  icubam_bedcount_path='bedcount_2020-03-31_17h43.{csv,h5,pickle}',
-  pre_icubam_path='my_data_file.{csv,h5,pickle}',
-)
+python -m predicu.plots \
+    --output-dir <path> \
+    --api-key <key> \
+    --matplotlib-style <style> \
+    --plots [PLOT [PLOT ...]] \
+    --output-type {tex,png,pdf}
 ```
