@@ -3,9 +3,11 @@ import json
 import logging
 import os
 import pickle
+import urllib.request
 
 import numpy as np
 import pandas as pd
+from lxml import html
 
 BASE_PATH = os.path.dirname(__file__)
 
@@ -18,7 +20,6 @@ def get_cache_path(path):
 
 DATA_PATHS = {
     "icubam": "data/all_bedcounts_2020-04-07_01h01.csv",
-    "public": "data/donnees-hospitalieres-covid19-2020-04-04-19h00.csv",
     "icu_name_to_department": "data/icu_name_to_department.json",
     "pre_icubam": "data/pre_icubam_data.csv",
     "department_population": "data/department_population.csv",
@@ -88,14 +89,15 @@ def load_icubam_data(api_key):
         )
         logging.info("downloading data from %s" % url)
         d = pd.read_csv(url.format(api_key))
-        icu_name_to_department = dict(
-            d[["icu_name", "icu_dept"]].itertuples(name=None, index=False)
-        )
-        logging.info("updating %s" % DATA_PATHS["icu_name_to_department"])
-        with open(DATA_PATHS["icu_name_to_department"], "w") as f:
-            json.dump(icu_name_to_department, f)
+    icu_name_to_department = load_icu_name_to_department()
+    icu_name_to_department.update(
+        dict(d[["icu_name", "icu_dept"]].itertuples(name=None, index=False))
+    )
+    logging.info("updating %s" % DATA_PATHS["icu_name_to_department"])
+    with open(DATA_PATHS["icu_name_to_department"], "w") as f:
+        json.dump(icu_name_to_department, f)
     d = d.rename(columns={"create_date": "date"})
-    d = format_data(d)
+    d = format_data(d, icu_name_to_department)
     return d
 
 
@@ -133,14 +135,13 @@ def load_pre_icubam_data():
     ]
     for col in missing_columns:
         d[col] = 0
-    d = format_data(d)
+    d = format_data(d, load_icu_name_to_department())
     return d
 
 
-def format_data(d):
+def format_data(d, icu_name_to_department):
     d["datetime"] = pd.to_datetime(d["date"])
     d["date"] = d["datetime"].dt.date
-    icu_name_to_department = load_icu_name_to_department()
     d["department"] = d.icu_name.apply(icu_name_to_department.get)
     d = d[ALL_COLUMNS]
     return d
@@ -326,7 +327,28 @@ def load_france_departments():
 
 
 def load_public_data():
-    d = pd.read_csv(DATA_PATHS["public"], sep=";",)
+    filename_prefix = "donnees-hospitalieres-covid19-2020"
+    logging.info("scrapping public data")
+    url = (
+        "https://www.data.gouv.fr/fr/datasets/"
+        "donnees-hospitalieres-relatives-a-lepidemie-de-covid-19/"
+    )
+    with urllib.request.urlopen(url) as f:
+        html_content = f.read().decode("utf8")
+    tree = html.fromstring(html_content)
+    download_url = None
+    elements = tree.xpath('//*[contains(@class, "resource-card")]')
+    for e in elements:
+        resource_name = e.xpath('//*[contains(@class, "ellipsis")]/text()')[0]
+        if resource_name.startswith(filename_prefix):
+            download_url = e.xpath("//*[@download]/@href")[0]
+            logging.info(
+                "found resource %s at %s" % (resource_name, download_url)
+            )
+            break
+    if download_url is None:
+        raise Exception("Could not scrap public data")
+    d = pd.read_csv(download_url, sep=";",)
     d = d.loc[d.sexe == 0]
     d = d.rename(
         columns={
@@ -347,9 +369,9 @@ def load_public_data():
     ]
 
 
-DEPARTMENTS = sorted(list(set(list(load_icu_name_to_department().values()))))
-DEPARTMENTS_GRAND_EST = sorted(load_pre_icubam_data().department.unique())
-ICU_NAMES_GRAND_EST = sorted(load_pre_icubam_data().icu_name.unique())
+DEPARTMENTS = list(load_icu_name_to_department().values())
+DEPARTMENTS_GRAND_EST = list(load_pre_icubam_data().department.unique())
+ICU_NAMES_GRAND_EST = list(load_pre_icubam_data().icu_name.unique())
 CODE_TO_DEPARTMENT = dict(
     load_france_departments()[["departmentCode", "departmentName"]].itertuples(
         name=None, index=False,
