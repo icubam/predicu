@@ -22,7 +22,7 @@ python -m predicu export --output-dir <path> --api-key <key> --max-date <date>
 ### Generate all the plots
 
 ```
-python -m predicu.plots \
+python -m predicu.plot \
     --output-dir <path> \
     --api-key <key> \
     --matplotlib-style <style> \
