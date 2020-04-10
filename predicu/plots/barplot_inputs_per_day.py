@@ -7,8 +7,8 @@ import seaborn as sns
 import predicu.data
 
 
-def plot(**plot_args):
-    d = predicu.data.load_icubam_data(api_key=plot_args["api_key"])
+def plot(icubam_data=None, api_key=None):
+    d = predicu.data.load_icubam_data(icubam_data=icubam_data, api_key=api_key)
     d = d.rename(columns={"create_date": "date"})
     d = predicu.data.format_data(d)
     counts = d.groupby(["date", "icu_name"]).datetime.count().values

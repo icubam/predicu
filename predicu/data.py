@@ -59,11 +59,15 @@ def load_all_data(
     spread_cum_jump_correction=False,
     api_key=None,
     max_date=None,
+    icubam_data: pd.DataFrame =None
 ):
     if cache and os.path.isfile(DATA_PATHS["icubam_cache"]):
         return pd.read_hdf(DATA_PATHS["icubam_cache"])
     pre_icubam = load_pre_icubam_data()
-    icubam = load_icubam_data(api_key=api_key)
+    if icubam_data is not None:
+        icubam = icubam_data
+    else:
+        icubam = load_icubam_data(api_key=api_key)
     dates_in_both = set(icubam.date.unique()) & set(pre_icubam.date.unique())
     pre_icubam = pre_icubam.loc[~pre_icubam.date.isin(dates_in_both)]
     d = pd.concat([pre_icubam, icubam])
@@ -363,12 +367,12 @@ DEPARTMENT_TO_CODE = dict(
 DEPARTMENT_POPULATION = load_department_population()
 
 
-def load_combined_icubam_public(api_key=None):
+def load_combined_icubam_public(icubam_data=None, api_key=None):
     get_dpt_pop = load_department_population().get
     dp = load_public_data()
     dp["department"] = dp.department_code.apply(CODE_TO_DEPARTMENT.get)
     dp = dp.loc[dp.department.isin(DEPARTMENTS_GRAND_EST)]
-    di = load_all_data(api_key=api_key)
+    di = load_all_data(icubam_data=icubam_data, api_key=api_key)
     di = di.loc[di.icu_name.isin(ICU_NAMES_GRAND_EST)]
     di = di.groupby(["date", "department"]).sum().reset_index()
     di["department_code"] = di.department.apply(DEPARTMENT_TO_CODE.get)

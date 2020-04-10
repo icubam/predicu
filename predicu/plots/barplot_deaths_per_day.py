@@ -10,9 +10,9 @@ import seaborn as sns
 import predicu.data
 
 
-def plot(**plot_args):
+def plot(icubam_data=None, api_key=None):
     column = "n_covid_deaths"
-    d = predicu.data.load_all_data(api_key=plot_args["api_key"])
+    d = predicu.data.load_all_data(icubam_data=icubam_data, api_key=api_key)
     d = d.loc[d.icu_name.isin(predicu.data.ICU_NAMES_GRAND_EST)]
     d = d.groupby(["date", "department"]).sum().reset_index()
     d = d.sort_values(by="date")

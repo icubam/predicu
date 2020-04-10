@@ -13,8 +13,8 @@ import predicu.data
 import predicu.plot
 
 
-def plot(**plot_args):
-    data = predicu.data.load_all_data(api_key=plot_args["api_key"])
+def plot(icubam_data=None, api_key=None):
+    data = predicu.data.load_all_data(icubam_data=icubam_data, api_key=api_key)
     data = data.loc[data.icu_name.isin(predicu.data.ICU_NAMES_GRAND_EST)]
     n_occ = data.groupby("date").sum()["n_covid_occ"]
     n_free = data.groupby("date").sum()["n_covid_free"]
