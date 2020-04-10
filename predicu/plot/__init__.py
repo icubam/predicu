@@ -8,6 +8,7 @@ import matplotlib.style
 import numpy as np
 import scipy
 import seaborn
+import pandas as pd
 
 import predicu.data
 
@@ -103,13 +104,15 @@ for path in os.listdir(os.path.dirname(__file__)):
         PLOTS.append(plot_name)
 
 
-def plot(plot_name, **plot_args):
-    plot_fun = __import__(
+def plot(plot_name, data, **plot_args):
+    plot_module = __import__(
         f"predicu.plot.{plot_name}", globals(), locals(), ["plot"], 0
-    ).plot
+    )
+    plot_fun = plot_module.plot
+    data_source = plot_module.data_source
     matplotlib.use("agg")
     matplotlib.style.use(plot_args["matplotlib_style"])
-    fig, tikzplotlib_kwargs = plot_fun(api_key=plot_args["api_key"])
+    fig, tikzplotlib_kwargs = plot_fun(data=data[data_source].copy())
     output_type = plot_args["output_type"]
     if plot_args["output_type"] == "tex":
         output_path = os.path.join(plot_args["output_dir"], f"{plot_name}.tex")
@@ -131,6 +134,7 @@ def generate_plots(
     plots: Optional[List[str]] = None,
     matplotlib_style: str = "seaborn-whitegrid",
     api_key: Optional[str] = None,
+    icubam_data: pd.DataFrame = None,
     output_type: str = "png",
     output_dir: str = "/tmp/",
 ):
@@ -145,11 +149,23 @@ def generate_plots(
         raise ValueError(
             "Unknown plot(s): {}".format(", ".join(plots_unknown))
         )
+    data = {}
+    data["all_data"] = predicu.data.load_all_data(
+        icubam_data=icubam_data, api_key=api_key
+    )
+    data["combined_icubam_public"] = predicu.data.load_combined_icubam_public(
+        icubam_data=icubam_data, api_key=api_key
+    )
+    if icubam_data is None:
+        data["icubam_data"] = predicu.data.load_icubam_data(api_key=api_key)
+    else:
+        data["icubam_data"] = icubam_data
+
     for name in sorted(plots):
         logging.info("generating plot %s in %s" % (name, output_dir))
         plot(
             name,
-            api_key=api_key,
+            data=data,
             matplotlib_style=matplotlib_style,
             output_dir=output_dir,
             output_type=output_type,

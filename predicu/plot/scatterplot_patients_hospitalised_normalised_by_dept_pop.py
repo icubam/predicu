@@ -12,13 +12,12 @@ import scipy.stats
 import predicu.data
 import predicu.plot
 
+data_source = "combined_icubam_public"
 
-def plot(**plot_args):
-    combined = predicu.data.load_combined_icubam_public(
-        api_key=plot_args["api_key"]
-    )
+
+def plot(data):
     icubam_public_n_icu_patients_corr = (
-        combined.groupby("date")[
+        data.groupby("date")[
             ["n_icu_patients_icubam", "n_icu_patients_public"]
         ]
         .corr()
@@ -31,13 +30,13 @@ def plot(**plot_args):
             }
         )
     )
-    combined = combined.loc[combined.date == combined.date.max()]
+    data = data.loc[data.date == data.date.max()]
 
     fig, ax = plt.subplots(1, figsize=(20, 10))
 
-    x = combined.loc[combined.department != "Haut-Rhin"].department_pop
-    y = combined.loc[
-        combined.department != "Haut-Rhin"
+    x = data.loc[data.department != "Haut-Rhin"].department_pop
+    y = data.loc[
+        data.department != "Haut-Rhin"
     ].n_hospitalised_patients
     slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(x, y)
     slope, _, _, _ = np.linalg.lstsq(x[:, np.newaxis], y, rcond=None)
@@ -47,11 +46,11 @@ def plot(**plot_args):
     y = y[y >= 0]
     ax.plot(x, y, lw=3, ls="dashed", color="black", alpha=0.4)
 
-    ax.set_xlim(0, combined.department_pop.max() * 1.1)
+    ax.set_xlim(0, data.department_pop.max() * 1.1)
     ax.set_ylim(0, 1200)
 
-    for _, row in combined.iterrows():
-        scale = 3 * row.department_pop / combined.department_pop.max()
+    for _, row in data.iterrows():
+        scale = 3 * row.department_pop / data.department_pop.max()
         width = 0.02 * scale * ax.get_xlim()[1]
         height = 0.02 * scale * ax.get_ylim()[1]
         xy = (row.department_pop, row.n_hospitalised_patients)
@@ -87,7 +86,7 @@ def plot(**plot_args):
         "Moselle": "above",
     }
 
-    for _, row in combined.iterrows():
+    for _, row in data.iterrows():
         x = row.department_pop + 10000
         y = row.n_hospitalised_patients
         ha = "left"
