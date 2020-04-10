@@ -15,8 +15,7 @@ import predicu.plot
 data_source = "all_data"
 
 
-def plot(icubam_data=None, api_key=None):
-    data = predicu.data.load_all_data(icubam_data=icubam_data, api_key=api_key)
+def plot(data):
     data = data.loc[data.icu_name.isin(predicu.data.ICU_NAMES_GRAND_EST)]
     data = (
         data.groupby(["date", "department"])

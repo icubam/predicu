@@ -15,10 +15,7 @@ import predicu.plot
 data_source = "combined_icubam_public"
 
 
-def plot(icubam_data=None, api_key=None):
-    data = predicu.data.load_combined_icubam_public(
-        icubam_data=icubam_data, api_key=api_key
-    )
+def plot(data):
     fig, (ax1, ax2) = plt.subplots(2, figsize=(20, 10), sharex=True)
     date_range_idx = np.arange(len(data.date.unique()))
     for dept, dg in data.groupby("department"):
