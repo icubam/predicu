@@ -12,6 +12,8 @@ import predicu.data
 import predicu.flow
 import predicu.plot
 
+data_source = "all_data"
+
 
 def plot(icubam_data=None, api_key=None):
     data = predicu.data.load_all_data(icubam_data=icubam_data, api_key=api_key)

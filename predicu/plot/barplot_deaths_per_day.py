@@ -9,6 +9,7 @@ import seaborn as sns
 
 import predicu.data
 
+data_source = "all_data"
 
 def plot(icubam_data=None, api_key=None):
     column = "n_covid_deaths"
