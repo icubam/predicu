@@ -12,11 +12,10 @@ import pandas as pd
 import predicu.data
 import predicu.plot
 
+data_source = "combined_icubam_public"
 
-def plot(**plot_args):
-    data = predicu.data.load_combined_icubam_public(
-        api_key=plot_args["api_key"]
-    )
+
+def plot(data):
     fig, (ax1, ax2) = plt.subplots(2, figsize=(20, 10), sharex=True)
     date_range_idx = np.arange(len(data.date.unique()))
     for dept, dg in data.groupby("department"):

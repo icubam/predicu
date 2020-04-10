@@ -5,9 +5,10 @@ import numpy as np
 import predicu.data
 import predicu.plot
 
+data_source = "all_data"
 
-def plot(**plot_args):
-    data = predicu.data.load_all_data(api_key=plot_args["api_key"])
+
+def plot(data):
     n_rows = (
         len(predicu.data.CUM_COLUMNS) + len(predicu.data.CUM_COLUMNS) % 2
     ) // 2

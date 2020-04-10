@@ -12,13 +12,12 @@ import scipy.stats
 import predicu.data
 import predicu.plot
 
+data_source = "combined_icubam_public"
 
-def plot(**plot_args):
-    combined = predicu.data.load_combined_icubam_public(
-        api_key=plot_args["api_key"]
-    )
+
+def plot(data):
     icubam_public_n_icu_patients_corr = (
-        combined.groupby("date")[
+        data.groupby("date")[
             ["n_icu_patients_icubam", "n_icu_patients_public"]
         ]
         .corr()
@@ -31,20 +30,20 @@ def plot(**plot_args):
             }
         )
     )
-    combined = combined.loc[combined.date == combined.date.max()]
+    data = data.loc[data.date == data.date.max()]
 
     c_public = next(predicu.plot.RANDOM_COLORS)
     c_icubam = next(predicu.plot.RANDOM_COLORS)
 
     fig, ax = plt.subplots(1, figsize=(20, 10))
-    ax.set_xlim(0, combined.department_pop.max() * 1.1)
-    ax.set_ylim(0, combined.n_icu_patients_public.max() * 1.1)
+    ax.set_xlim(0, data.department_pop.max() * 1.1)
+    ax.set_ylim(0, data.n_icu_patients_public.max() * 1.1)
 
     for c, y in [
-        (c_public, combined.n_icu_patients_public),
-        (c_icubam, combined.n_icu_patients_icubam),
+        (c_public, data.n_icu_patients_public),
+        (c_icubam, data.n_icu_patients_icubam),
     ]:
-        x = combined.department_pop
+        x = data.department_pop
         slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(
             x, y
         )
@@ -56,16 +55,16 @@ def plot(**plot_args):
         ax.plot(x, y, lw=3, ls="dashed", color=c, alpha=0.4)
 
     ax.scatter(
-        combined.department_pop,
-        combined.n_icu_patients_public,
+        data.department_pop,
+        data.n_icu_patients_public,
         label="Donnée publique",
-        s=combined.n_icu_patients_public,
+        s=data.n_icu_patients_public,
     )
     ax.scatter(
-        combined.department_pop,
-        combined.n_icu_patients_icubam,
+        data.department_pop,
+        data.n_icu_patients_icubam,
         label="Donnée ICUBAM",
-        s=combined.n_icu_patients_icubam,
+        s=data.n_icu_patients_icubam,
     )
 
     dept_name_pos = {
@@ -76,7 +75,7 @@ def plot(**plot_args):
         "Aube": "below",
     }
 
-    for _, row in combined.iterrows():
+    for _, row in data.iterrows():
         line = matplotlib.lines.Line2D(
             xdata=[row.department_pop, row.department_pop],
             ydata=[row.n_icu_patients_public, row.n_icu_patients_icubam],
