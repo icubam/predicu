@@ -12,6 +12,8 @@ import scipy.stats
 import predicu.data
 import predicu.plot
 
+data_source = "combined_icubam_public"
+
 
 def plot(icubam_data=None, api_key=None):
     combined = predicu.data.load_combined_icubam_public(

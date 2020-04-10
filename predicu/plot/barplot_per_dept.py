@@ -12,6 +12,8 @@ import pandas as pd
 import predicu.data
 import predicu.plot
 
+data_source = "all_data"
+
 
 def plot(**plot_args):
     data = predicu.data.load_all_data(api_key=plot_args["api_key"])
