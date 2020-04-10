@@ -15,12 +15,9 @@ import predicu.plot
 data_source = "combined_icubam_public"
 
 
-def plot(icubam_data=None, api_key=None):
-    combined = predicu.data.load_combined_icubam_public(
-        icubam_data=icubam_data, api_key=api_key
-    )
+def plot(data):
     icubam_public_n_icu_patients_corr = (
-        combined.groupby("date")[
+        data.groupby("date")[
             ["n_icu_patients_icubam", "n_icu_patients_public"]
         ]
         .corr()

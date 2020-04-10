@@ -11,9 +11,10 @@ import predicu.data
 
 data_source = "all_data"
 
-def plot(icubam_data=None, api_key=None):
+
+def plot(data):
     column = "n_covid_deaths"
-    d = predicu.data.load_all_data(icubam_data=icubam_data, api_key=api_key)
+    d = data
     d = d.loc[d.icu_name.isin(predicu.data.ICU_NAMES_GRAND_EST)]
     d = d.groupby(["date", "department"]).sum().reset_index()
     d = d.sort_values(by="date")
