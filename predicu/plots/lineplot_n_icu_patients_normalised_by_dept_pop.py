@@ -13,9 +13,9 @@ import predicu.data
 import predicu.plot
 
 
-def plot(**plot_args):
+def plot(icubam_data=None, api_key=None):
     data = predicu.data.load_combined_icubam_public(
-        api_key=plot_args["api_key"]
+        icubam_data=icubam_data, api_key=api_key
     )
     fig, (ax1, ax2) = plt.subplots(2, figsize=(20, 10), sharex=True)
     date_range_idx = np.arange(len(data.date.unique()))

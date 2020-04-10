@@ -13,9 +13,9 @@ import predicu.data
 import predicu.plot
 
 
-def plot(**plot_args):
+def plot(icubam_data=None, api_key=None):
     combined = predicu.data.load_combined_icubam_public(
-        api_key=plot_args["api_key"]
+        icubam_data=icubam_data, api_key=api_key
     )
     icubam_public_n_icu_patients_corr = (
         combined.groupby("date")[

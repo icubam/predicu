@@ -6,8 +6,8 @@ import predicu.data
 import predicu.plot
 
 
-def plot(**plot_args):
-    data = predicu.data.load_all_data(api_key=plot_args["api_key"])
+def plot(icubam_data=None, api_key=None):
+    data = predicu.data.load_all_data(icubam_data=icubam_data, api_key=api_key)
     n_rows = (
         len(predicu.data.CUM_COLUMNS) + len(predicu.data.CUM_COLUMNS) % 2
     ) // 2
