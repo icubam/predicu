@@ -60,7 +60,7 @@ def load_all_data(
     spread_cum_jump_correction=False,
     api_key=None,
     max_date=None,
-    icubam_data: pd.DataFrame =None
+    icubam_data: pd.DataFrame = None,
 ):
     if cache and os.path.isfile(DATA_PATHS["icubam_cache"]):
         return pd.read_hdf(DATA_PATHS["icubam_cache"])
@@ -389,7 +389,9 @@ DEPARTMENT_TO_CODE = dict(
 DEPARTMENT_POPULATION = load_department_population()
 
 
-def load_combined_icubam_public(icubam_data=None, api_key=None):
+def load_combined_icubam_public(
+    icubam_data: pd.DataFrame = None, api_key=None
+):
     get_dpt_pop = load_department_population().get
     dp = load_public_data()
     dp["department"] = dp.department_code.apply(CODE_TO_DEPARTMENT.get)
