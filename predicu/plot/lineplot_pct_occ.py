@@ -64,7 +64,7 @@ def plot(data):
         ],
         loc="lower right",
     )
-    ax.set_ylabel("Pourcentage d'occupations des lits Covid+")
+    ax.set_ylabel("Covid+ beds occupancy percentage")
 
     tikzplotlib_kwargs = dict(axis_width="14cm", axis_height="8cm",)
     return fig, tikzplotlib_kwargs

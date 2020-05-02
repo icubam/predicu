@@ -58,7 +58,7 @@ def plot(data):
         rotation=45,
     )
     ax.set_ylim(0, data.groupby(["date"])[col].sum().max() + 5)
-    ax.set_ylabel("Sorties de réa par jour")
+    ax.set_ylabel("Patients exiting ICU / day")
     yticks = np.arange(0, 20, 5)
     for ytick in yticks:
         ax.axhline(y=ytick, ls="dashed", c="w")

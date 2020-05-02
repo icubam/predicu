@@ -39,7 +39,7 @@ def plot(data):
     ax.set_xticklabels(
         [date.strftime("%d-%m") for date in dates[xticks]], rotation=45,
     )
-    ax.set_ylabel("Pourcentage")
+    ax.set_ylabel("Percentage")
     ax.legend()
     tikzplotlib_kwargs = dict(axis_width="14cm", axis_height="6cm",)
     return fig, tikzplotlib_kwargs

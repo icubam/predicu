@@ -15,17 +15,17 @@ from predicu.data import BEDCOUNT_COLUMNS, combine_bedcounts_public, load_data
 from predicu.preprocessing import preprocess_data
 
 COLUMN_TO_HUMAN_READABLE = {
-    "n_covid_deaths": "Décès",
-    "n_covid_healed": "Sorties de réa",
-    "n_covid_transfered": "Transferts (autre réa)",
-    "n_covid_refused": "Refus (faute de place)",
-    "n_covid_free": "Lits Covid+ libres",
-    "n_ncovid_free": "Lits Covid- libres",
-    "n_covid_occ": "Lits Covid+ occupés",
-    "n_ncovid_occ": "Lits Covid- occupés",
-    "flow": "Flux total de patients",
-    "pct_deaths": "Pourcentage de décès",
-    "pct_healed": "Pourcentage de sorties",
+    "n_covid_deaths": "Deaths",
+    "n_covid_healed": "ICU exits",
+    "n_covid_transfered": "Transfers to other ICU",
+    "n_covid_refused": "Refusals (no bed available)",
+    "n_covid_free": "Available Covid+ beds",
+    "n_ncovid_free": "Available Covid- beds",
+    "n_covid_occ": "Occupied Covid+ beds",
+    "n_ncovid_occ": "Occupied Covid- beds",
+    "flow": "Total flow of patients",
+    "pct_deaths": "Percentage of deaths",
+    "pct_healed": "Percentage of ICU exits",
 }
 
 COL_COLOR = {

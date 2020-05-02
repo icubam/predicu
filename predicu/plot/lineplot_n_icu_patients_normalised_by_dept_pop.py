@@ -53,15 +53,13 @@ def plot(data):
             alpha=0.3,
         )
 
-    ax1.set_ylabel("Patients hospitalisés / 100,000")
+    ax1.set_ylabel("Population-normalised nb of hospitalised patients")
     ax1.set_title(
-        "Évolution du nombre de patients hospitalisés / 100,000 hab."
+        "Evolution of nb of hospitalised patients / 100,000 inhabitants"
     )
     ax1.legend(ncol=2)
-    ax2.set_ylabel("Patients en réanimation / 100,000")
-    ax2.set_title(
-        "Évolution du nombre de patients en réanimation / 100,000 hab."
-    )
+    ax2.set_ylabel("Population-normalised nb of ICU patients")
+    ax2.set_title("Evolution of nb of ICU patients / 100,000 inhabitants")
     dates = np.array(sorted(data.date.unique().flatten()))
     xticks = np.arange(0, len(dates), 3)
     for ax in [ax1, ax2]:
@@ -74,7 +72,7 @@ def plot(data):
             matplotlib.lines.Line2D([0], [0], color="k", lw=2, ls="solid"),
             matplotlib.lines.Line2D([0], [0], color="k", lw=2, ls="dashed"),
         ],
-        ["Donnée publique", "Donnée ICUBAM"],
+        ["Public data", "ICUBAM data"],
         ncol=1,
     )
     ax2.set_xlim(0, len(date_range_idx) - 1)

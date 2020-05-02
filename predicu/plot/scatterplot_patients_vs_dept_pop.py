@@ -38,13 +38,13 @@ def plot(data):
     ax.scatter(
         data.department_pop,
         data.n_icu_patients_public,
-        label="Donnée publique",
+        label="Public data",
         s=data.n_icu_patients_public,
     )
     ax.scatter(
         data.department_pop,
         data.n_icu_patients_icubam,
-        label="Donnée ICUBAM",
+        label="ICUBAM data",
         s=data.n_icu_patients_icubam,
     )
 
@@ -86,8 +86,8 @@ def plot(data):
                 ha = "center"
         text = ax.text(x, y, row.department)
         text.set_horizontalalignment(ha)
-    ax.set_ylabel("Patients en réanimation (total)")
-    ax.set_xlabel("Habitants départementaux")
+    ax.set_ylabel("ICU patients")
+    ax.set_xlabel("Department population")
     ax.legend(loc="upper left")
     tikzplotlib_kwargs = dict(
         axis_width="12cm", axis_height="8cm", textsize=7.0,

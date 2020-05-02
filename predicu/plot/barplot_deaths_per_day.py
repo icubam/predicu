@@ -26,11 +26,11 @@ def plot(data):
     ax.set_xticklabels(
         [date.strftime("%d-%m") for date in dates[xticks]], rotation=45,
     )
-    ax.set_ylabel("Décès par 100,000 habitants")
+    ax.set_ylabel("Deaths / 100,000 inhabitants")
     ax.set_xlabel(None)
-    txt = ax.text(7, 5, "Début acquisition", fontsize="xx-large", color="red")
-    txt.set_horizontalalignment("left")
-    txt = ax.text(7, 4.8, r"\texttt{ICUBAM}", fontsize="xx-large", color="red")
+    txt = ax.text(
+        7, 5, r"Start \texttt{ICUBAM}", fontsize="xx-large", color="red"
+    )
     txt.set_horizontalalignment("left")
     tikzplotlib_args = {"axis_width": "10cm"}
     return fig, tikzplotlib_args

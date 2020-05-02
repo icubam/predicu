@@ -10,6 +10,6 @@ def plot(data):
     fig, ax = plt.subplots(1, figsize=(12, 8))
     sns.countplot(counts)
     # ax.set_title('Distributions des nombres de saisies par date et par ICU')
-    ax.set_xlabel("Nombre de saisies dans la journée")
-    ax.set_ylabel("Compte par date et réanimation")
+    ax.set_xlabel("Number of inputs per day")
+    ax.set_ylabel("Count")
     return fig, dict()

@@ -77,8 +77,8 @@ def plot(data):
                 ha = "center"
         text = ax.text(x, y, row.department)
         text.set_horizontalalignment(ha)
-    ax.set_ylabel("Patients hospitalisés (total)")
-    ax.set_xlabel("Habitants départementaux")
+    ax.set_ylabel("Total hospitalised patients")
+    ax.set_xlabel("Department population")
     ax.legend()
     tikzplotlib_kwargs = dict(
         axis_width="10cm", axis_height="10cm", textsize=7.0,

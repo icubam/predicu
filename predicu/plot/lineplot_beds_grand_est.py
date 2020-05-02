@@ -25,7 +25,7 @@ def plot(data):
     text = ax.text(
         x=x_icubam_beg - 0.5,
         y=n_tot.max() * 0.95,
-        s=r"Début \texttt{ICUBAM}",
+        s=r"Start \texttt{ICUBAM}",
         fontsize="xx-large",
         fontweight="bold",
         color="red",
@@ -40,7 +40,7 @@ def plot(data):
         ax=ax,
         color=next(RANDOM_COLORS),
         marker=next(RANDOM_MARKERS),
-        label="Total (lits)",
+        label="Total (beds)",
         lw=2,
     )
     ax = plot_int(
@@ -49,7 +49,7 @@ def plot(data):
         ax=ax,
         color=next(RANDOM_COLORS),
         marker=next(RANDOM_MARKERS),
-        label="Lits occupés + transferts",
+        label="Nb of occupied beds + transfers",
         lw=2,
     )
     ax = plot_int(
@@ -58,10 +58,10 @@ def plot(data):
         ax=ax,
         color=next(RANDOM_COLORS),
         marker=next(RANDOM_MARKERS),
-        label="Lits occupés",
+        label="Nb of occupied beds",
         lw=2,
     )
-    ax.set_ylabel(r"Nombre de lits")
+    ax.set_ylabel("Number of patients / beds")
     ax.legend(loc="lower right")
     dates = np.array(sorted(data.date.unique().flatten()))
     xticks = np.arange(0, len(dates), 3)

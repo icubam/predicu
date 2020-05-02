@@ -42,6 +42,6 @@ def plot(data):
         ],
         loc="upper left",
     )
-    ax.set_ylabel(r"Somme lits occ. + transferts")
+    ax.set_ylabel(r"Occupied beds + transfers")
     tikzplotlib_kwargs = dict(axis_width="15cm", axis_height="8cm",)
     return fig, tikzplotlib_kwargs

@@ -58,7 +58,7 @@ def plot(data):
         rotation=45,
     )
     ax.set_ylim(0, data.groupby(["date"])[col].sum().max() + 5)
-    ax.set_ylabel("Décès par jour")
+    ax.set_ylabel("Deaths per day")
     ax.legend(
         ncol=2,
         handles=[
