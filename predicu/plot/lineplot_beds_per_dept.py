@@ -1,50 +1,42 @@
-import itertools
-
 import matplotlib.patches
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 
-import predicu.data
-import predicu.flow
-import predicu.plot
+from predicu.data import BEDCOUNT_COLUMNS
+from predicu.plot import DEPARTMENT_COLOR, RANDOM_MARKERS, plot_int
 
-data_source = "all_data"
+data_source = ["bedcounts"]
 
 
 def plot(data):
-    data = data.loc[data.icu_name.isin(predicu.data.ICU_NAMES_GRAND_EST)]
-    agg = {col: "sum" for col in predicu.data.BEDCOUNT_COLUMNS}
+    agg = {col: "sum" for col in BEDCOUNT_COLUMNS}
     data = data.groupby(["date", "department"]).agg(agg)
     data = data.reset_index()
-
     fig, ax = plt.subplots(1, figsize=(7, 4))
-    date_idx_range = np.arange(len(data.date.unique()))
     for department, dg in data.groupby("department"):
         dg = dg.sort_values(by="date")
-        y = dg.n_covid_occ  # + dg.n_covid_transfered.diff(1).fillna(0)
-        predicu.plot.plot_int(
-            date_idx_range,
+        x = np.arange(len(dg))
+        y = dg.n_covid_occ.values  # + dg.n_covid_transfered.diff(1).fillna(0)
+        plot_int(
+            x,
             y,
             ax=ax,
-            color=predicu.plot.DEPARTMENT_GRAND_EST_COLOR[department],
+            color=DEPARTMENT_COLOR[department],
             label=department,
             lw=2,
-            marker=next(predicu.plot.RANDOM_MARKERS),
+            marker=next(RANDOM_MARKERS),
         )
-
-    ax.set_xticks(np.arange(data.date.unique().shape[0]))
+    dates = np.array(sorted(data.date.unique().flatten()))
+    xticks = np.arange(0, len(dates), 3)
+    ax.set_xticks(xticks)
     ax.set_xticklabels(
-        [date.strftime("%d-%m") for date in sorted(data.date.unique())],
-        rotation=45,
+        [date.strftime("%d-%m") for date in dates[xticks]], rotation=45,
     )
     ax.legend(
         ncol=2,
         handles=[
             matplotlib.patches.Patch(
-                facecolor=predicu.plot.DEPARTMENT_GRAND_EST_COLOR[dpt],
-                label=dpt,
-                linewidth=3,
+                facecolor=DEPARTMENT_COLOR[dpt], label=dpt, linewidth=3,
             )
             for dpt in sorted(data.department.unique())
         ],

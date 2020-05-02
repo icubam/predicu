@@ -1,12 +1,10 @@
 import pandas as pd
 
-import predicu.data
+from predicu.data import CUM_COLUMNS
 
 
 def compute_flow(d):
-    sum_cols = set(predicu.data.CUM_COLUMNS + ["n_covid_occ"]) - {
-        "n_covid_refused"
-    }
+    sum_cols = set(CUM_COLUMNS + ["n_covid_occ"]) - {"n_covid_refused"}
     summed = d[sum_cols].sum(axis=1)
     flow = summed.diff(1).fillna(0)
     flow.iloc[0] = summed.iloc[0]

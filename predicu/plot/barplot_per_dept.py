@@ -1,24 +1,19 @@
-import itertools
-import sys
-
 import matplotlib.cm
 import matplotlib.gridspec
 import matplotlib.patches
 import matplotlib.pyplot as plt
 import matplotlib.style
 import numpy as np
-import pandas as pd
 
-import predicu.data
-import predicu.plot
+from predicu.data import BEDCOUNT_COLUMNS
+from predicu.plot import COL_COLOR, COLUMN_TO_HUMAN_READABLE
 
-data_source = "all_data"
+data_source = ["bedcounts"]
 
 
 def plot(data):
-    data = data.loc[data.icu_name.isin(predicu.data.ICU_NAMES_GRAND_EST)]
     data = data.groupby(["date", "department"]).agg(
-        {col: "sum" for col in predicu.data.BEDCOUNT_COLUMNS}
+        {col: "sum" for col in BEDCOUNT_COLUMNS}
     )
     data = data.reset_index()
     data = data.sort_values(by=["department", "date"])
@@ -45,8 +40,8 @@ def plot(data):
                 fill=True,
                 linewidth=0.7,
                 edgecolor="black",
-                facecolor=predicu.plot.COL_COLOR[col],
-                label=predicu.plot.COLUMN_TO_HUMAN_READABLE[col],
+                facecolor=COL_COLOR[col],
+                label=COLUMN_TO_HUMAN_READABLE[col],
             )
             last_x = last_x + row[col]
             ax.add_patch(rect_patch)
@@ -61,8 +56,7 @@ def plot(data):
     ax.legend(
         handles=[
             matplotlib.patches.Patch(
-                facecolor=predicu.plot.COL_COLOR[col],
-                label=predicu.plot.COLUMN_TO_HUMAN_READABLE[col],
+                facecolor=COL_COLOR[col], label=COLUMN_TO_HUMAN_READABLE[col],
             )
             for col in barplot_columns
         ],

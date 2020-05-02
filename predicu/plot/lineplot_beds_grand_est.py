@@ -1,22 +1,14 @@
 import datetime
-import itertools
 
-import matplotlib.cm
-import matplotlib.gridspec
-import matplotlib.patches
 import matplotlib.pyplot as plt
-import matplotlib.style
 import numpy as np
-import pandas as pd
 
-import predicu.data
-import predicu.plot
+from predicu.plot import RANDOM_COLORS, RANDOM_MARKERS, plot_int
 
-data_source = "all_data"
+data_source = ["bedcounts"]
 
 
 def plot(data):
-    data = data.loc[data.icu_name.isin(predicu.data.ICU_NAMES_GRAND_EST)]
     n_occ = data.groupby("date").sum()["n_covid_occ"]
     n_free = data.groupby("date").sum()["n_covid_free"]
     n_transfered = (
@@ -42,39 +34,40 @@ def plot(data):
 
     date_range_idx = np.arange(len(n_req))
 
-    ax = predicu.plot.plot_int(
+    ax = plot_int(
         date_range_idx,
         n_tot.values,
         ax=ax,
-        color=next(predicu.plot.RANDOM_COLORS),
-        marker=next(predicu.plot.RANDOM_MARKERS),
+        color=next(RANDOM_COLORS),
+        marker=next(RANDOM_MARKERS),
         label="Total (lits)",
         lw=2,
     )
-    ax = predicu.plot.plot_int(
+    ax = plot_int(
         date_range_idx,
         n_req.values,
         ax=ax,
-        color=next(predicu.plot.RANDOM_COLORS),
-        marker=next(predicu.plot.RANDOM_MARKERS),
+        color=next(RANDOM_COLORS),
+        marker=next(RANDOM_MARKERS),
         label="Lits occupés + transferts",
         lw=2,
     )
-    ax = predicu.plot.plot_int(
+    ax = plot_int(
         date_range_idx,
         n_occ.values,
         ax=ax,
-        color=next(predicu.plot.RANDOM_COLORS),
-        marker=next(predicu.plot.RANDOM_MARKERS),
+        color=next(RANDOM_COLORS),
+        marker=next(RANDOM_MARKERS),
         label="Lits occupés",
         lw=2,
     )
     ax.set_ylabel(r"Nombre de lits")
     ax.legend(loc="lower right")
-    ax.set_xticks(np.arange(data.date.unique().shape[0]))
+    dates = np.array(sorted(data.date.unique().flatten()))
+    xticks = np.arange(0, len(dates), 3)
+    ax.set_xticks(xticks)
     ax.set_xticklabels(
-        [date.strftime("%d-%m") for date in sorted(data.date.unique())],
-        rotation=45,
+        [date.strftime("%d-%m") for date in dates[xticks]], rotation=45,
     )
     tikzplotlib_kwargs = dict(axis_width="13.5cm", axis_height="7.2cm",)
     return fig, tikzplotlib_kwargs

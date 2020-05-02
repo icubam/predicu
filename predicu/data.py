@@ -1,34 +1,52 @@
-import itertools
-import json
 import logging
-import os
 import pickle
 import urllib.request
+from pathlib import Path
+from typing import Callable, Dict
 
-import numpy as np
 import pandas as pd
 from lxml import html
 
-BASE_PATH = os.path.dirname(__file__)
+BASE_PATH = Path(__file__).resolve().parent
+
+DATA_PATHS = {
+    "department_population": "data/department_population.csv",
+    "departments": "data/france_departments.json",
+    "department_typo_fixes": "data/icubam_department_typo_fixes.json",
+}
+
+for key, path in DATA_PATHS.items():
+    DATA_PATHS[key] = str(Path(BASE_PATH) / path)
 
 
-def get_cache_path(path):
-    return os.path.join(
-        os.path.dirname(path), "__cache__" + os.path.basename(path),
+def load_department_population():
+    return dict(
+        pd.read_csv(DATA_PATHS["department_population"]).itertuples(
+            name=None, index=False
+        )
     )
 
 
-DATA_PATHS = {
-    "icubam": "data/all_bedcounts_2020-04-07_01h01.csv",
-    "icu_name_to_department": "data/icu_name_to_department.json",
-    "pre_icubam": "data/pre_icubam_data.csv",
-    "department_population": "data/department_population.csv",
-    "departments": "data/france_departments.json",
-}
-DATA_PATHS["icubam_cache"] = get_cache_path(DATA_PATHS["icubam"])
+def load_france_departments():
+    d = pd.read_json(DATA_PATHS["departments"])
+    d.loc[
+        d["departmentName"] == "Côtes-d'armor", "departmentName"
+    ] = "Côtes-d'Armor"
+    return d
 
-for key, path in DATA_PATHS.items():
-    DATA_PATHS[key] = os.path.join(BASE_PATH, path)
+
+CODE_TO_DEPARTMENT = dict(
+    load_france_departments()[["departmentCode", "departmentName"]].itertuples(
+        name=None, index=False,
+    ),
+)
+DEPARTMENT_TO_CODE = dict(
+    load_france_departments()[["departmentName", "departmentCode"]].itertuples(
+        name=None, index=False,
+    )
+)
+DEPARTMENT_POPULATION = load_department_population()
+DEPARTMENTS = set(load_france_departments().departmentName.unique())
 
 CUM_COLUMNS = [
     "n_covid_deaths",
@@ -44,68 +62,52 @@ NCUM_COLUMNS = [
 ]
 BEDCOUNT_COLUMNS = CUM_COLUMNS + NCUM_COLUMNS
 ALL_COLUMNS = (
-    ["icu_name", "date", "datetime", "department"] + CUM_COLUMNS + NCUM_COLUMNS
+    ["icu_name", "date", "datetime", "department", "region"]
+    + CUM_COLUMNS
+    + NCUM_COLUMNS
 )
-SPREAD_CUM_JUMPS_MAX_JUMP = {
-    "n_covid_deaths": 10,
-    "n_covid_transfered": 10,
-    "n_covid_refused": 10,
-    "n_covid_healed": 10,
-}
 
 
-def load_all_data(
-    clean=True,
-    cache=False,
-    spread_cum_jump_correction=False,
-    api_key=None,
-    max_date=None,
-    icubam_data: pd.DataFrame = None,
+def load_data(data_source: str, **kwargs):
+    """Generic data loader for various data sources
+
+    Args:
+      data_source: must be one of DATA_SOURCES
+    """
+    if data_source == "combined_bedcounts_public":
+        raise ValueError(
+            "combined_bedcounts_public must be manually assembled "
+            "from bedcounts and public data sources"
+        )
+    elif data_source not in DATA_LOADERS:
+        raise ValueError(f"data_source={data_source} not in {DATA_SOURCES}.")
+
+    func = DATA_LOADERS[data_source]
+    # If kwargs are wrong, this will explicitly fail. It's up to the user to pass
+    # correct arguments for each data loader.
+    return func(**kwargs)
+
+
+def load_bedcounts(
+    api_key=None, icubam_host=None,
 ):
-    if cache and os.path.isfile(DATA_PATHS["icubam_cache"]):
-        return pd.read_hdf(DATA_PATHS["icubam_cache"])
-    pre_icubam = load_pre_icubam_data()
-    icubam = load_icubam_data(data=icubam_data, api_key=api_key)
-    dates_in_both = set(icubam.date.unique()) & set(pre_icubam.date.unique())
-    pre_icubam = pre_icubam.loc[~pre_icubam.date.isin(dates_in_both)]
-    d = pd.concat([pre_icubam, icubam])
-    if clean:
-        d = clean_data(d, spread_cum_jump_correction)
-    d = d.sort_values(by=["date", "icu_name"])
-    if max_date is not None:
-        logging.info("data loaded's max date will be %s (excluded)" % max_date)
-        d = d.loc[d.date < pd.to_datetime(max_date).date()]
-    if cache and clean:
-        d.to_hdf(DATA_PATHS["icubam_cache"], "values")
-    return d
-
-
-def load_icubam_data(data=None, api_key=None):
-    if data is not None:
-        d = data
-    elif api_key is None:
-        d = load_data_file(DATA_PATHS["icubam"])
+    """Load Bedcount data from ICUBAM API"""
+    if api_key is None or icubam_host is None:
+        raise RuntimeError("Provide API key and host to download ICUBAM data")
     else:
+        protocol = "http" if icubam_host.startswith("localhost") else "https"
         url = (
-            "https://prod.icubam.net/db/"
-            "all_bedcounts?format=csv&API_KEY={}".format(api_key)
+            f"{protocol}://{icubam_host}/"
+            f"db/all_bedcounts?format=csv&API_KEY={api_key}"
         )
         logging.info("downloading data from %s" % url)
         d = pd.read_csv(url.format(api_key))
-    icu_name_to_department = load_icu_name_to_department()
-    icu_name_to_department.update(
-        dict(d[["icu_name", "icu_dept"]].itertuples(name=None, index=False))
-    )
-    logging.info("updating %s" % DATA_PATHS["icu_name_to_department"])
-    with open(DATA_PATHS["icu_name_to_department"], "w") as f:
-        json.dump(icu_name_to_department, f)
-    d = d.rename(columns={"create_date": "date"})
-    d = format_data(d, icu_name_to_department)
+    d = d.sort_values(by=["create_date", "icu_name"])
     return d
 
 
-def load_pre_icubam_data():
-    d = load_data_file(DATA_PATHS["pre_icubam"])
+def load_pre_icubam(data_path):
+    d = _load_any_file(data_path)
     d = d.rename(
         columns={
             "Hopital": "icu_name",
@@ -138,165 +140,11 @@ def load_pre_icubam_data():
     ]
     for col in missing_columns:
         d[col] = 0
-    d = format_data(d, load_icu_name_to_department())
+    d = format_data(d)
     return d
 
 
-def format_data(d, icu_name_to_department):
-    d["datetime"] = pd.to_datetime(d["date"])
-    d["date"] = d["datetime"].dt.date
-    d["department"] = d.icu_name.apply(icu_name_to_department.get)
-    d = d[ALL_COLUMNS]
-    return d
-
-
-def clean_data(d, spread_cum_jump_correction=False):
-    d.loc[d.icu_name == "Mulhouse-Chir", "n_covid_healed"] = np.clip(
-        (
-            d.loc[d.icu_name == "Mulhouse-Chir", "n_covid_healed"]
-            - d.loc[d.icu_name == "Mulhouse-Chir", "n_covid_transfered"]
-        ).values,
-        a_min=0,
-        a_max=None,
-    )
-    icu_to_first_input_date = dict(
-        d.groupby("icu_name")[["date"]].min().itertuples(name=None)
-    )
-    d = aggregate_multiple_inputs(d)
-    # d = fix_noncum_inputs(d)
-    d = get_clean_daily_values(d)
-    if spread_cum_jump_correction:
-        d = spread_cum_jumps(d, icu_to_first_input_date)
-    d = d[ALL_COLUMNS]
-    return d
-
-
-def aggregate_multiple_inputs(d):
-    res_dfs = []
-    for icu_name, dg in d.groupby("icu_name"):
-        dg = dg.set_index("datetime")
-        dg = dg.sort_index()
-        mask = (
-            (dg.index.to_series().diff(1) > pd.Timedelta("15Min"))
-            .shift(-1)
-            .fillna(True)
-            .astype(bool)
-        )
-        dg = dg.loc[mask]
-
-        for col in CUM_COLUMNS:
-            dg[col] = (
-                dg[col]
-                .rolling(5, center=True, min_periods=1)
-                .median()
-                .astype(int)
-            )
-
-        for col in NCUM_COLUMNS:
-            dg[col] = dg[col].fillna(0)
-            dg[col] = (
-                dg[col]
-                .rolling(3, center=True, min_periods=1)
-                .median()
-                .astype(int)
-            )
-
-        for col in CUM_COLUMNS:
-            new_col = []
-            last_val = -100000
-            for idx, row in dg.iterrows():
-                if row[col] >= last_val:
-                    new_val = row[col]
-                else:
-                    new_val = last_val
-                new_col.append(new_val)
-                last_val = new_val
-            dg[col] = new_col
-
-        res_dfs.append(dg.reset_index())
-    return pd.concat(res_dfs)
-
-
-def get_clean_daily_values(d):
-    icu_name_to_department = load_icu_name_to_department()
-    dates = sorted(list(d.date.unique()))
-    icu_names = sorted(list(d.icu_name.unique()))
-    clean_data_points = list()
-    per_icu_prev_data_point = dict()
-    for date, icu_name in itertools.product(dates, icu_names):
-        sd = d.loc[(d.date == date) & (d.icu_name == icu_name)]
-        sd = sd.sort_values(by="datetime")
-        new_data_point = {
-            "date": date,
-            "icu_name": icu_name,
-            "department": icu_name_to_department[icu_name],
-            "datetime": date,
-        }
-        new_data_point.update({col: 0 for col in CUM_COLUMNS})
-        new_data_point.update({col: 0 for col in NCUM_COLUMNS})
-        if icu_name in per_icu_prev_data_point:
-            new_data_point.update(
-                {
-                    col: per_icu_prev_data_point[icu_name][col]
-                    for col in BEDCOUNT_COLUMNS
-                }
-            )
-        if len(sd) > 0:
-            new_data_point.update(
-                {col: sd[col].iloc[-1] for col in BEDCOUNT_COLUMNS}
-            )
-        per_icu_prev_data_point[icu_name] = new_data_point
-        clean_data_points.append(new_data_point)
-    return pd.DataFrame(clean_data_points)
-
-
-def spread_cum_jumps(d, icu_to_first_input_date):
-    assert np.all(d.date.values == d.datetime.values)
-    date_begin_transfered_refused = pd.to_datetime("2020-03-25").date()
-    dfs = []
-    for icu_name, dg in d.groupby("icu_name"):
-        dg = dg.sort_values(by="date")
-        dg = dg.reset_index()
-        already_fixed_col = set()
-        for switch_point, cols in (
-            (icu_to_first_input_date[icu_name], CUM_COLUMNS),
-            (
-                date_begin_transfered_refused,
-                ["n_covid_transfered", "n_covid_refused"],
-            ),
-        ):
-            beg = max(dg.date.min(), switch_point - pd.Timedelta("2D"),)
-            end = min(dg.date.max(), switch_point + pd.Timedelta("2D"),)
-            for col in cols:
-                if col in already_fixed_col:
-                    continue
-                beg_val = dg.loc[dg.date == beg, col].values[0]
-                end_val = dg.loc[dg.date == end, col].values[0]
-                diff = end_val - beg_val
-                if diff >= SPREAD_CUM_JUMPS_MAX_JUMP[col]:
-                    spread_beg = dg.date.min()
-                    spread_end = end
-                    spread_range = pd.date_range(
-                        spread_beg, spread_end, freq="1D"
-                    ).date
-                    spread_value = diff // (spread_end - spread_beg).days
-                    remaining = diff % (spread_end - spread_beg).days
-                    dg.loc[dg.date.isin(spread_range), col] = np.clip(
-                        np.cumsum(np.repeat(spread_value, len(spread_range))),
-                        a_min=0,
-                        a_max=end_val,
-                    )
-                    dg.loc[dg.date == end, col] = np.clip(
-                        dg.loc[dg.date == end, col].values[0] + remaining,
-                        a_min=0,
-                        a_max=end_val,
-                    )
-                    already_fixed_col.add(col)
-        dfs.append(dg)
-    return pd.concat(dfs)
-
-
-def load_data_file(data_path):
+def _load_any_file(data_path):
     ext = data_path.rsplit(".", 1)[-1]
     if ext == "pickle":
         with open(data_path, "rb") as f:
@@ -310,26 +158,7 @@ def load_data_file(data_path):
     return d
 
 
-def load_icu_name_to_department():
-    with open(DATA_PATHS["icu_name_to_department"]) as f:
-        icu_name_to_department = json.load(f)
-    icu_name_to_department["St-Dizier"] = "Haute-Marne"
-    return icu_name_to_department
-
-
-def load_department_population():
-    return dict(
-        pd.read_csv(DATA_PATHS["department_population"]).itertuples(
-            name=None, index=False
-        )
-    )
-
-
-def load_france_departments():
-    return pd.read_json(DATA_PATHS["departments"])
-
-
-def load_public_data():
+def load_public():
     filename_prefix = "donnees-hospitalieres-covid19-2020"
     logging.info("scrapping public data")
     url = (
@@ -359,6 +188,8 @@ def load_public_data():
             "jour": "date",
             "hosp": "n_hospitalised_patients",
             "rea": "n_icu_patients",
+            "rad": "n_hospital_healed",
+            "dc": "n_hospital_death",
         }
     )
     d["date"] = pd.to_datetime(d["date"]).dt.date
@@ -368,40 +199,49 @@ def load_public_data():
             "department_code",
             "n_hospitalised_patients",
             "n_icu_patients",
+            "n_hospital_healed",
+            "n_hospital_death",
         ]
     ]
 
 
-DEPARTMENTS = list(load_icu_name_to_department().values())
-DEPARTMENTS_GRAND_EST = list(load_pre_icubam_data().department.unique())
-ICU_NAMES_GRAND_EST = list(load_pre_icubam_data().icu_name.unique())
-CODE_TO_DEPARTMENT = dict(
-    load_france_departments()[["departmentCode", "departmentName"]].itertuples(
-        name=None, index=False,
-    ),
-)
-DEPARTMENT_TO_CODE = dict(
-    load_france_departments()[["departmentName", "departmentCode"]].itertuples(
-        name=None, index=False,
-    )
-)
-DEPARTMENT_POPULATION = load_department_population()
-
-
-def load_combined_icubam_public(
-    icubam_data: pd.DataFrame = None, api_key=None
-):
+def combine_bedcounts_public(
+    public_data: pd.DataFrame, bedcount_data: pd.DataFrame
+) -> pd.DataFrame:
+    """Combine **preprocessed** public and ICUBAM data"""
     get_dpt_pop = load_department_population().get
-    dp = load_public_data()
+    dp = public_data
+    di = bedcount_data
     dp["department"] = dp.department_code.apply(CODE_TO_DEPARTMENT.get)
-    dp = dp.loc[dp.department.isin(DEPARTMENTS_GRAND_EST)]
-    di = load_all_data(icubam_data=icubam_data, api_key=api_key)
-    di = di.loc[di.icu_name.isin(ICU_NAMES_GRAND_EST)]
+    dpt_to_region = dict(
+        di.groupby(["department", "region"])
+        .first()
+        .reset_index()[["department", "region"]]
+        .itertuples(name=None, index=False)
+    )
     di = di.groupby(["date", "department"]).sum().reset_index()
     di["department_code"] = di.department.apply(DEPARTMENT_TO_CODE.get)
     di["n_icu_patients"] = di.n_covid_occ + di.n_ncovid_occ.fillna(0)
-    combined = di.merge(
+    d = di.merge(
         dp, on=["department", "date"], suffixes=["_icubam", "_public"]
     )
-    combined["department_pop"] = combined.department.apply(get_dpt_pop)
-    return combined
+    d["department_pop"] = d.department.apply(get_dpt_pop)
+    d["region"] = d.department.apply(dpt_to_region.get)
+    return d
+
+
+def format_data(d):
+    d["datetime"] = pd.to_datetime(d["date"])
+    d["date"] = d["datetime"].dt.date
+    d = d[ALL_COLUMNS]
+    return d
+
+
+DATA_LOADERS: Dict[str, Callable] = {
+    "bedcounts": load_bedcounts,
+    "public": load_public,
+}
+# note that there is no loader for combined_bedcounts_public, it must be
+# explicitly assembled with `combine_bedcounts_public` function after
+# pre-processing
+DATA_SOURCES = ["bedcounts", "public", "combined_bedcounts_public"]

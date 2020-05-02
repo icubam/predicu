@@ -1,6 +1,3 @@
-import itertools
-import sys
-
 import matplotlib.cm
 import matplotlib.gridspec
 import matplotlib.patches
@@ -9,17 +6,16 @@ import matplotlib.style
 import numpy as np
 import pandas as pd
 
-import predicu.data
-import predicu.plot
+from predicu.data import BEDCOUNT_COLUMNS
+from predicu.plot import DEPARTMENT_COLOR
 
-data_source = "all_data"
+data_source = ["bedcounts"]
 
 
 def plot(data):
-    data = data.loc[data.icu_name.isin(predicu.data.ICU_NAMES_GRAND_EST)]
     data = (
         data.groupby(["date", "department"])
-        .agg({col: "sum" for col in predicu.data.BEDCOUNT_COLUMNS})
+        .agg({col: "sum" for col in BEDCOUNT_COLUMNS})
         .reset_index()
     )
     dfs = []
@@ -36,7 +32,6 @@ def plot(data):
         data.sort_values(by="date").groupby("date")
     ):
         for j, department in enumerate(sorted_depts):
-            d_dept = d_date.loc[d_date.department == department]
             height = d_date[d_date.department.isin(sorted_depts[j:])][
                 col
             ].sum()
@@ -47,28 +42,28 @@ def plot(data):
                 fill=True,
                 linewidth=0.7,
                 edgecolor="black",
-                facecolor=predicu.plot.DEPARTMENT_GRAND_EST_COLOR[department],
+                facecolor=DEPARTMENT_COLOR[department],
                 label=department,
             )
             ax.add_patch(rect_patch)
     ax.set_xlim(0, len(data.date.unique()))
-    ax.set_xticks(np.arange(len(data.date.unique())) + 0.5)
+    ax.set_xticks(np.arange(0, len(data.date.unique()), 3) + 0.5)
     ax.set_xticklabels(
-        [date.strftime("%d-%m") for date in sorted(data.date.unique())],
+        [
+            date.strftime("%d-%m")
+            for date in np.array(sorted(data.date.unique()))[
+                np.arange(0, len(data.date.unique()), 3)
+            ]
+        ],
         rotation=45,
     )
     ax.set_ylim(0, data.groupby(["date"])[col].sum().max() + 5)
     ax.set_ylabel("Décès par jour")
-    yticks = np.arange(0, 20, 5)
-    for ytick in yticks:
-        ax.axhline(y=ytick, ls="dashed", c="w")
-    ax.set_yticks(yticks)
     ax.legend(
         ncol=2,
         handles=[
             matplotlib.patches.Patch(
-                facecolor=predicu.plot.DEPARTMENT_GRAND_EST_COLOR[dept],
-                label=dept,
+                facecolor=DEPARTMENT_COLOR[dept], label=dept,
             )
             for dept in reversed(sorted_depts)
         ],

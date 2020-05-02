@@ -1,39 +1,20 @@
-import datetime
-import json
-
 import matplotlib.gridspec
 import matplotlib.lines
 import matplotlib.pyplot as plt
 import matplotlib.style
 import numpy as np
-import pandas as pd
 import scipy.stats
 
-import predicu.data
-import predicu.plot
+from predicu.plot import RANDOM_COLORS
 
-data_source = "combined_icubam_public"
+data_source = ["combined_bedcounts_public"]
 
 
 def plot(data):
-    icubam_public_n_icu_patients_corr = (
-        data.groupby("date")[
-            ["n_icu_patients_icubam", "n_icu_patients_public"]
-        ]
-        .corr()
-        .iloc[0::2, -1]
-        .reset_index()
-        .set_index("date")
-        .rename(
-            columns={
-                "n_icu_patients_public": "corr_icubam_public_n_icu_patients"
-            }
-        )
-    )
     data = data.loc[data.date == data.date.max()]
 
-    c_public = next(predicu.plot.RANDOM_COLORS)
-    c_icubam = next(predicu.plot.RANDOM_COLORS)
+    c_public = next(RANDOM_COLORS)
+    c_icubam = next(RANDOM_COLORS)
 
     fig, ax = plt.subplots(1, figsize=(20, 10))
     ax.set_xlim(0, data.department_pop.max() * 1.1)
@@ -72,6 +53,7 @@ def plot(data):
         "Ardennes": "above",
         "Meuse": "left",
         "Haute-Marne": "below",
+        "Meurthe-et-Moselle": "left",
         "Aube": "below",
     }
 

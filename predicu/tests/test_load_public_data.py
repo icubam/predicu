@@ -1,10 +1,13 @@
 import datetime
 
-import predicu.data
+import pytest
+
+from predicu.data import load_public
 
 
+@pytest.mark.slow
 def test_load_public_data():
-    data = predicu.data.load_public_data()
+    data = load_public()
     max_date = data.date.max()
     now = datetime.datetime.now()
     if now.hour < 20:

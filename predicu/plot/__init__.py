@@ -1,17 +1,18 @@
 import itertools
 import logging
 import os
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.style
 import numpy as np
+import pandas as pd
 import scipy
 import seaborn
-import pandas as pd
 
-import predicu.data
+from predicu.data import BEDCOUNT_COLUMNS, combine_bedcounts_public, load_data
+from predicu.preprocessing import preprocess_data
 
 COLUMN_TO_HUMAN_READABLE = {
     "n_covid_deaths": "Décès",
@@ -28,10 +29,8 @@ COLUMN_TO_HUMAN_READABLE = {
 }
 
 COL_COLOR = {
-    col: seaborn.color_palette(
-        "colorblind", len(predicu.data.BEDCOUNT_COLUMNS) + 1
-    )[i]
-    for i, col in enumerate(predicu.data.BEDCOUNT_COLUMNS + ["flow"])
+    col: seaborn.color_palette("colorblind", len(BEDCOUNT_COLUMNS) + 1)[i]
+    for i, col in enumerate(BEDCOUNT_COLUMNS + ["flow"])
 }
 COL_COLOR.update(
     {
@@ -56,16 +55,26 @@ COL_COLOR.update(
         ),
     }
 )
+DEPARTMENTS_GRAND_EST = [
+    "Ardennes",
+    "Aube",
+    "Marne",
+    "Haute-Marne",
+    "Meurthe-et-Moselle",
+    "Meuse",
+    "Moselle",
+    "Bas-Rhin",
+    "Haut-Rhin",
+    "Vosges",
+]
 DEPARTMENT_COLOR = {
-    dpt: seaborn.color_palette("colorblind", len(predicu.data.DEPARTMENTS))[i]
-    for i, dpt in enumerate(predicu.data.DEPARTMENTS)
+    dpt: seaborn.color_palette("colorblind", len(DEPARTMENTS_GRAND_EST))[i]
+    for i, dpt in enumerate(sorted(DEPARTMENTS_GRAND_EST))
 }
-DEPARTMENT_GRAND_EST_COLOR = {
-    dpt: seaborn.color_palette(
-        "colorblind", len(predicu.data.DEPARTMENTS_GRAND_EST)
-    )[i]
-    for i, dpt in enumerate(predicu.data.DEPARTMENTS_GRAND_EST)
-}
+# DEPARTMENT_COLOR = {
+# dpt: seaborn.color_palette("colorblind", len(DEPARTMENTS))[i]
+# for i, dpt in enumerate(sorted(DEPARTMENTS))
+# }
 RANDOM_MARKERS = itertools.cycle(("x", "+", ".", "|"))
 RANDOM_COLORS = itertools.cycle(seaborn.color_palette("colorblind", 10))
 
@@ -97,52 +106,110 @@ def plot_int(
 
 PLOTS = []
 for path in os.listdir(os.path.dirname(__file__)):
-    if path.endswith(".py") and any(
-        path.startswith(prefix)
-        for prefix in ["barplot", "lineplot", "scatterplot", "stackplot"]
-    ):
+    if path.endswith(".py") and path != "__init__.py":
         plot_name = path.rsplit(".", 1)[0]
         PLOTS.append(plot_name)
 
 
-def plot(plot_name, data, **plot_args):
-    plot_module = __import__(
-        f"predicu.plot.{plot_name}", globals(), locals(), ["plot"], 0
-    )
-    plot_fun = plot_module.plot
-    data_source = plot_module.data_source
+def plot(
+    plot_name: str,
+    cached_data: Dict[str, pd.DataFrame],
+    output_dir: str,
+    output_type: str,
+    api_key: Optional[str],
+    icubam_host: Optional[str],
+    matplotlib_style: str,
+    restrict_to_region: Optional[str] = None,
+):
+    """Generate one plot
+
+  Args:
+    plot_name: name of the plot to make. Must match one of the files in plot/
+    cached_data : a dictionary with **raw** data for different sources.
+  """
+    plot_module = __import__(f"{plot_name}", globals(), locals(), ["plot"], 1)
+    plot_fun = plot_module.plot  # type: ignore
+
+    data_source = plot_module.data_source.copy()  # type: ignore
+    needs_combined_data = "combined_bedcounts_public" in data_source
+    if needs_combined_data:
+        data_source.remove("combined_bedcounts_public")
+        # load requied data to make combined dataset
+        data_source += ["bedcounts", "public"]
+
+    # load required raw data if it's missing
+    for name in data_source:
+        if name not in cached_data:
+            if name == "bedcounts":
+                kwargs = dict(api_key=api_key, icubam_host=icubam_host,)
+            else:
+                kwargs = {}
+            cached_data[name] = load_data(name, **kwargs)
+
+    # preprocess the subset of data necessary this plot
+    plot_data = {}
+    for name in data_source:
+        data = cached_data[name].copy()
+        kwargs = getattr(plot_module, "preprocesing_args", {}).get(
+            name, {}
+        )  # type: ignore
+
+        if name == "bedcounts":
+            kwargs["restrict_to_region"] = restrict_to_region
+
+        plot_data[name] = preprocess_data(name, data, **kwargs)
+
+    if needs_combined_data:
+        plot_data["combined_bedcounts_public"] = combine_bedcounts_public(
+            plot_data["public"], plot_data["bedcounts"]
+        )
+        data_source.remove("bedcounts")
+        data_source.remove("public")
+        data_source.append("combined_bedcounts_public")
+
     matplotlib.use("agg")
-    matplotlib.style.use(plot_args["matplotlib_style"])
-    fig, tikzplotlib_kwargs = plot_fun(data=data[data_source].copy())
-    output_type = plot_args["output_type"]
-    if plot_args["output_type"] == "tex":
-        output_path = os.path.join(plot_args["output_dir"], f"{plot_name}.tex")
-        __import__("tikzplotlib").save(
-            filepath=output_path,
-            figure=fig,
-            **tikzplotlib_kwargs,
-            standalone=True,
-        )
-    elif output_type in ["png", "pdf"]:
-        fig.savefig(
-            os.path.join(plot_args["output_dir"], f"{plot_name}.{output_type}")
-        )
-    else:
-        raise ValueError(f"Unknown output type: {output_type}")
-    plt.close(fig)
+    matplotlib.style.use(matplotlib_style)
+
+    if len(data_source) == 1:
+        plot_data = plot_data[data_source[0]]
+
+    figs, tikzplotlib_kwargs = plot_fun(data=plot_data)
+
+    if not isinstance(figs, dict):
+        figs = {f"{plot_name}.{output_type}": figs}
+    for fname_out, fig in figs.items():
+        if output_type == "tex":
+            output_path = os.path.join(output_dir, fname_out)
+            if tikzplotlib_kwargs is None:
+                tikzplotlib_kwargs = dict()
+            __import__("tikzplotlib").save(  # type: ignore
+                filepath=output_path,
+                figure=fig,
+                standalone=True,
+                **tikzplotlib_kwargs,
+            )
+        elif output_type in ["png", "pdf"]:
+            fig.savefig(os.path.join(output_dir, fname_out), dpi=150)
+        else:
+            raise ValueError(f"Unknown output type: {output_type}")
+        plt.close(fig)
 
 
 def generate_plots(
     plots: Optional[List[str]] = None,
     matplotlib_style: str = "seaborn-whitegrid",
     api_key: Optional[str] = None,
-    icubam_data: pd.DataFrame = None,
+    icubam_host: Optional[str] = None,
     output_type: str = "png",
-    output_dir: str = "/tmp/",
+    output_dir: str = "/tmp",
+    cached_data: Dict = None,
+    restrict_to_region: Optional[str] = None,
 ):
-    # Note: the default values here should match the defaults in CLI below.
+    if cached_data is None:
+        cached_data = dict()
     if plots is None:
         plots = PLOTS
+    plots = sorted(plots)
     if not os.path.isdir(output_dir):
         logging.info("creating directory %s" % output_dir)
         os.makedirs(output_dir)
@@ -151,24 +218,15 @@ def generate_plots(
         raise ValueError(
             "Unknown plot(s): {}".format(", ".join(plots_unknown))
         )
-    data = {}
-    data["all_data"] = predicu.data.load_all_data(
-        icubam_data=icubam_data, api_key=api_key
-    )
-    data["combined_icubam_public"] = predicu.data.load_combined_icubam_public(
-        icubam_data=icubam_data, api_key=api_key
-    )
-    if icubam_data is None:
-        data["icubam_data"] = predicu.data.load_icubam_data(api_key=api_key)
-    else:
-        data["icubam_data"] = icubam_data
-
     for name in sorted(plots):
         logging.info("generating plot %s in %s" % (name, output_dir))
         plot(
             name,
-            data=data,
+            cached_data=cached_data,
             matplotlib_style=matplotlib_style,
             output_dir=output_dir,
             output_type=output_type,
+            api_key=api_key,
+            icubam_host=icubam_host,
+            restrict_to_region=restrict_to_region,
         )

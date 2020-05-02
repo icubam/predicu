@@ -133,3 +133,5 @@ dmypy.json
 *.bkp
 *.xls
 *.aux
+.lvimrc
+makefile
