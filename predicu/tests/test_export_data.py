@@ -1,4 +1,4 @@
-import icubam.predicu.data as icubam_data
+import predicu.data as icubam_data
 from predicu.tests.utils import load_test_data
 
 
@@ -16,7 +16,7 @@ def test_export_data(tmpdir, monkeypatch):
         "load_bedcounts",
         make_monkeypatch_load_bedcounts(cached_data["bedcounts"]),
     )
-    import icubam.predicu.__main__
+    from predicu.__main__ import export_data
 
     test_args = dict(
         output_dir=str(tmpdir),
@@ -25,4 +25,4 @@ def test_export_data(tmpdir, monkeypatch):
         icubam_host="localhost",
         spread_cum_jump_correction=False,
     )
-    icubam.predicu.__main__.export_data(**test_args)
+    export_data(**test_args)
