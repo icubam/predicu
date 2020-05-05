@@ -13,10 +13,11 @@ editor_options:
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 library('tidyverse')
-setwd("C:/Users/husson/Desktop")
+# setwd("C:/Users/husson/Desktop")
 
-#dta <- read_csv("predicu_data_preprocessed_2020-04-23.csv", col_types = cols(date = col_date(format = "%Y-%m-%d")))
+# Enter the correct API key below to dowload the latest data from ICUBAM server.
 dta <- read_csv("https://prod.icubam.net/db/all_bedcounts?API_KEY=<API_KEY>&preprocess=true&format=csv", col_types = cols(date = col_date(format = "%Y-%m-%d")))
+#dta <- read_csv("predicu_data_preprocessed_2020-04-23.csv", col_types = cols(date = col_date(format = "%Y-%m-%d")))
 dta <- as.data.frame(dta)
 dta <- dta[dta[,"date"]!=unique(dta$date)[length(unique(dta$date))],]   ## suppress date of the day because data are incomplete
  dta <- dta[dta$date<"2020-05-01",]  ## For graphs until April 30
