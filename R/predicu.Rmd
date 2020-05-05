@@ -1,0 +1,330 @@
+---
+title: "Visu Grand-Est"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: 
+    keep_tex: yes
+  word_document: default
+editor_options:
+  chunk_output_type: inline
+---
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library('tidyverse')
+# setwd("C:/Users/husson/Desktop")
+
+# Enter the correct API key below to dowload the latest data from ICUBAM server.
+dta <- read_csv("https://prod.icubam.net/db/all_bedcounts?API_KEY=<API_KEY>&preprocess=true&format=csv", col_types = cols(date = col_date(format = "%Y-%m-%d")))
+#dta <- read_csv("predicu_data_preprocessed_2020-04-23.csv", col_types = cols(date = col_date(format = "%Y-%m-%d")))
+dta <- as.data.frame(dta)
+dta <- dta[dta[,"date"]!=unique(dta$date)[length(unique(dta$date))],]   ## suppress date of the day because data are incomplete
+ dta <- dta[dta$date<"2020-05-01",]  ## For graphs until April 30
+dta$date=as.Date(dta$date)
+dta <- dta %>%   arrange(dta$date)  # sort by date
+if (!("Haute-Marne"%in%dta$department)){
+  levels(dta$department)=c(levels(dta$department),"Haute-Marne")
+  dta[dta$icu_name=="St-Dizier","department"]="Haute-Marne"
+}
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+## Construct the dataset with factor formats. Specific to R, likely not useful for Python.
+dta <- dta %>% mutate(department = factor(department))
+dta <- as.data.frame(dta)
+dta <- dta[dta[,"department"]%in%c("Aube","Vosges","Moselle","Meurthe-et-Moselle","Meuse","Marne","Haut-Rhin","Bas-Rhin","Ardennes","Haute-Marne"),]
+dta$department <- as.factor(as.character(dta$department))
+```
+
+```{r}
+# Daily data are calculated from the cumulated values ==> gives daily data
+dta <- as.data.frame(dta)
+dtaComplet <- dta
+dtaComplet <- cbind.data.frame(dtaComplet,n_covid_new_rea=dtaComplet$n_covid_occ)
+nomHop <- unique(dta[,"icu_name"])
+dd <- sort(unique(dta[,"date"]))
+# for (i in 1:length(nomHop)) print (nrow(dta[dta[,"icu_name"]==nomHop[i],])) 
+
+for (i in 1:length(nomHop)){
+  for (j in 1:length(dd)){
+    if (!(dd[j]%in%dta[dta[,"icu_name"]==nomHop[i],"date"])){
+      if (j==1) {
+        aux <- dtaComplet[dtaComplet[,"icu_name"]==nomHop[i],]
+        aux <- aux[1,,drop=FALSE]
+        aux[,5:12] <- 0
+        aux[,"date"] <- dd[j]
+      }
+      if (j!=1) {
+        aux <- dtaComplet[dtaComplet[,"icu_name"]==nomHop[i],]
+        aux <- aux[aux[,"date"]==dd[j-1],]
+        aux[,] <- dd[j]
+      }
+      dtaComplet <- rbind.data.frame(dtaComplet,aux)
+    }
+  }
+  aux <- dtaComplet[dtaComplet[,"icu_name"]==nomHop[i],c("n_covid_deaths","n_covid_healed","n_covid_transfered","n_covid_refused","n_covid_new_rea")]
+  for (j in length(dd):2){
+    aux[j,] <- aux[j,] -aux[j-1,] 
+  }
+  dtaComplet[dtaComplet[,"icu_name"]==nomHop[i],c("n_covid_deaths","n_covid_healed","n_covid_transfered","n_covid_refused","n_covid_new_rea")] <- aux
+}
+dta <- dtaComplet
+
+dta$n_covid_new_rea <- dta$n_covid_new_rea + dta$n_covid_deaths + dta$n_covid_healed
+dta$icu_name <- as.factor(dta$icu_name)
+dta <- dta %>%   arrange(dta$date) %>%arrange(dta$icu_name)
+```
+
+
+
+## Calcul of data for all the Grand-Est region
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+## Here we start by computing cummulated quantities by region and day (and variable). Then plot corresponding figures.
+n_covid_occRegion <- aggregate(dta[,"n_covid_occ"], list(dta[,"date"]),sum)$x
+n_ncovid_occRegion <- aggregate(dta[,"n_ncovid_occ"], list(dta[,"date"]),sum)$x
+n_covid_healedRegion <- aggregate(dta[,"n_covid_healed"], list(dta[,"date"]),sum)$x
+n_covid_freeRegion <- aggregate(dta[,"n_covid_free"], list(dta[,"date"]),sum)$x
+n_ncovid_freeRegion <- aggregate(dta[,"n_ncovid_free"], list(dta[,"date"]),sum)$x
+n_covid_deathsRegion <- aggregate(dta[,"n_covid_deaths"], list(dta[,"date"]),sum)$x
+n_covid_transferedRegion <- aggregate(dta[,"n_covid_transfered"], list(dta[,"date"]),sum)$x
+n_covid_refusedRegion <- aggregate(dta[,"n_covid_refused"], list(dta[,"date"]),sum)$x
+dta2 <- cbind.data.frame(date=unique(dta$date),n_covid_occRegion,n_covid_deathsRegion,n_covid_healedRegion,n_covid_transferedRegion,n_covid_freeRegion, n_coviTOTRegion=n_covid_occRegion+n_covid_transferedRegion,n_covid_litRegion = n_covid_occRegion+n_covid_freeRegion)
+dta2$date <- as.Date(dta2$date)
+```
+
+## Grand-Est visualization (fig 5)
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+pdf("Cumulated_gdEst.pdf",width=8,height=5)
+ggplot(dta2) + geom_point(aes(x= date, y = cumsum(n_covid_deathsRegion),col="black"))+
+   geom_smooth(aes(x= date, y = cumsum(n_covid_deathsRegion),col="black"), method="loess",size=1.3) +
+  geom_point(aes(x= date, y = cumsum(n_covid_healedRegion),col="blue"))+
+   geom_smooth(aes(x= date, y = cumsum(n_covid_healedRegion),col="blue"), method="loess",size=1.3) +
+  geom_point(aes(x= date, y = cumsum(n_covid_transferedRegion),col="green"))+
+   geom_line(aes(x= date, y = cumsum(n_covid_transferedRegion),col="green"), method="loess",size=1.3) +
+    scale_x_date(date_labels = "%m-%d", date_breaks="3 days")+
+    scale_color_discrete(name = " ", labels = c("deaths", "discharged","transferred")) +
+ggtitle("Cumulated number of patients (deaths, discharged or transferred) in region Grand Est")+theme(axis.text.x = element_text(angle=90),axis.text = element_text(size=11))+ylab("Cumulated number of patients")+ theme(legend.text=element_text(size=12))+theme(axis.title=element_text(size=14))
+dev.off()
+```
+
+## Grand-Est visualization (fig 7)
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+pdf("Beds_occ_gdEst.pdf",width=8,height=4)
+ggplot(dta2) + 
+   geom_col(aes(x= date, y = n_covid_occRegion+n_ncovid_occRegion+n_covid_freeRegion+n_ncovid_freeRegion,fill="Free"),alpha=0.4) +
+   geom_col(aes(x= date, y = n_covid_occRegion+n_ncovid_occRegion,fill="Occupied COVID-"),alpha=0.4) +
+   geom_col(aes(x= date, y = n_covid_occRegion,fill="Occupied COVID+"),alpha=0.7)+
+ geom_line(aes(x= date, y = n_covid_occRegion+n_ncovid_occRegion+n_covid_transferedRegion,color="red"),col="red",lwd=1.5) +
+  scale_x_date(date_labels = "%m-%d", date_breaks="3 days",expand=c(0,0)) +
+geom_vline(xintercept=as.numeric(dta2$date[8]), colour="blue",lty=2,lwd=1) +   geom_text(x=dta2[6,"date"],y=850, label="Start of ICUBAM", vjust=1,colour="blue", angle=90) +
+geom_hline(yintercept=501, colour="black",lty=2,lwd=1) + 
+  geom_text(x=dta2[20,"date"],y=471, label="Nominal capacity = 501 beds", colour="black") + ylab("Number of beds") + 
+  geom_text(x=dta2[34,"date"],y=835, label="Occupied beds + transferred", colour="red") + ylab("Number of beds") + 
+scale_color_discrete(name=" ",labels="Beds occupied COVID+ and COVID- + transfered")+
+  scale_fill_discrete(name="Beds",limits=c("free", "occupied covid-", "occupied covid+"))+scale_fill_manual(name=" ",values=c("#999999", "#E69F00", "#56B4E9")) +theme(axis.text.x = element_text(angle=90),axis.text = element_text(size=11))+ theme(legend.text=element_text(size=12))+theme(axis.title=element_text(size=14))
+dev.off()
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+## Here we sum the values by date and department (and variable of course)
+dta1 <- aggregate(dta$n_covid_deaths, by=list(dta$date,dta$department), FUN=sum,na.rm=TRUE)
+aux1 <- aggregate(dta$n_covid_occ, by=list(dta$date,dta$department), FUN=sum,na.rm=TRUE)$x
+aux2 <- aggregate(dta$n_covid_refused, by=list(dta$date,dta$department), FUN=sum,na.rm=TRUE)$x
+aux3 <- aggregate(dta$n_covid_transfered, by=list(dta$date,dta$department), FUN=sum,na.rm=TRUE)$x
+aux4 <- aggregate(dta$n_covid_free, by=list(dta$date,dta$department), FUN=sum,na.rm=TRUE)$x
+aux5 <- aggregate(dta$n_covid_healed, by=list(dta$date,dta$department), FUN=sum,na.rm=TRUE)$x
+aux6 <- aggregate(dta$n_covid_new_rea, by=list(dta$date,dta$department), FUN=sum,na.rm=TRUE)$x
+dta1 <- cbind.data.frame(dta1,n_covid_occ=aux1,n_covid_refused=aux2,n_covid_transfered=aux3,n_covid_free=aux4,n_covid_healed=aux5,n_covid_new_rea=aux6)
+colnames(dta1)[1:3] <- c("date","dept","n_covid_deaths")
+
+dta1$date <- as.Date(dta1$date)
+dta1[,2] <- as.factor(dta1[,2])
+```
+
+## Correspondence analysis (fig 9)
+
+```{r}
+## We build the the matrix with the number of occupied beds by date and department.
+library(FactoMineR)
+aa=matrix(0,10,length(unique(dta$date)))
+for (i in 1:10) aa[i,]=dta1$n_covid_occ[((i-1)*length(unique(dta$date))+1):(i*length(unique(dta$date)))]
+rownames(aa)=unique(dta1$dept)
+colnames(aa)=substr(as.character(unique(dta1$date)),6,10)
+aa=as.data.frame(aa)
+res.ca <- CA(aa,graph=FALSE)
+
+ChoiceDate <- c("03-18","03-19","03-20","03-21","03-22","03-23","03-24","03-25","03-26","03-27","04-01","04-05","04-09","04-15","04-17","04-20","04-23","04-27","04-30")
+pdf("CA_occupied_beds.pdf",width=8,height=3.2)
+plot.CA(res.ca,title="Correspondence analysis on the number of occupied beds", cex=1.2,selectCol=ChoiceDate,col.col=c(rep(2,9),rep("orange",19),rep(3,16)))+theme(axis.text = element_text(size=12))+theme(plot.title=element_text(size=16),axis.title=element_text(size=13))
+dev.off()
+```
+
+## Total number of beds in ICU (fig 8)
+```{r}
+capacite <- read.table("icus_2020-04-23.csv",header=TRUE,sep=";")
+rownames(capacite) <- capacite[,"name"]
+max_icu <- aggregate(dta$n_covid_occ+dta$n_covid_free+dta$n_ncovid_occ+dta$n_ncovid_free, by=list(dta$icu_name), FUN=max,na.rm=TRUE)
+tab <- cbind.data.frame(capacite[max_icu[,1],],maxi=max_icu[,2])
+capa_dept <- aggregate(capacite$Capacitaire_temps_normal, by=list(capacite$dept), FUN=sum,na.rm=TRUE)
+maxi_dept <- aggregate(tab$maxi, by=list(tab$dept), FUN=sum,na.rm=TRUE)
+tab <- tab[,c("dept","Capacitaire_temps_normal","maxi")]
+
+max_dept <- aggregate(dta$n_covid_occ+dta$n_covid_free+dta$n_ncovid_occ+dta$n_ncovid_free, by=list(dta$department,dta$date), FUN=sum,na.rm=TRUE)
+colnames(max_dept) <- c("dept","date","nb")
+
+vec <- NULL
+for (i in 1:10) {
+  aux <- max_dept[max_dept$dept==unique(max_dept$dept)[i],]
+  vec <- c(vec,as.character(first(aux[aux[,"nb"] >= capa_dept[unique(max_dept$dept)[i],2],"date"])))
+}
+capa_dept <- cbind.data.frame(capa_dept,date=as.Date(vec))
+colnames(capa_dept) <- c("dept","capa","date")
+  
+pdf("capacitaire_nb_beds.pdf",width=8,height=4)
+ggplot(data=max_dept)+ geom_line(aes(x=date, y=nb,col=dept)) +
+  geom_point(data=capa_dept,aes(x=date,y=capa,col=dept),lwd=2) + ylab("Total number of beds in ICU") +
+    scale_x_date(date_labels = "%m-%d", date_breaks="2 days")+theme(axis.text.x = element_text(angle=90),axis.text = element_text(size=11))+ theme(legend.text=element_text(size=12))+theme(axis.title=element_text(size=14))
+dev.off()
+
+```
+
+## Duration of invasive mechanical ventilation (fig 12)
+
+```{r}
+duree <- read.table("durée VM.csv",header=TRUE,sep=";")
+duree=duree[duree[,2]==1,]
+duree$status <- as.factor(duree$died_in_ICU)
+levels(duree$status) <- c("discharged","died")
+#ggplot(duree, aes(x=Duration_of_IMV, color=status, fill=status)) + geom_histogram(aes(y=..density..), alpha=0.5, position="identity",binwidth = 4) 
+
+pdf("Time_in_ICU.pdf",width=8,height=4)
+ggplot(duree)+aes(x=Duration_of_IMV)+geom_histogram(aes(y=..density..,fill=status),binwidth=1,alpha=0.9)+xlab("Duration of invasive mechanical ventilation")
+dev.off()
+```
+
+
+## Modelling
+
+```{r}
+Jmin <- 1
+Jmax <- 20
+don <- dta1[,c("date","dept","n_covid_occ","n_covid_deaths","n_covid_healed","n_covid_transfered","n_covid_new_rea")]
+nbvar <- ncol(don)
+for (j in 1:Jmax){
+  don <- cbind.data.frame(don,c(rep(0,j),dta1$n_covid_new_rea[-(nrow(don):(nrow(don)-j+1))]))
+  for (k in 1:j) don[k+(0:(nlevels(dta1$dept)-1))*length(unique(dta1$date)),nbvar+j] <- NA
+}
+colnames(don)[(nbvar+1):ncol(don)] <- paste0("J",1:Jmax)
+don <- cbind.data.frame(don,nbLibereLit=don$n_covid_deaths+don$n_covid_healed)
+```
+
+## Evaluation of the models (Table 1)
+
+```{r}
+library(FactoMineR)
+library(randomForest)
+choixDate <- 1:8
+NbJourValid <- 2
+
+erreur <- matrix(NA,length(choixDate),4)
+
+for (d in choixDate){
+
+don2 = don[which(apply(is.na(don),1,sum)==0),]
+don2 <- don2[don2$date<last(don2$date)-d-NbJourValid+1,]
+
+### For the model we drop the last NbJourValid dates
+App <- don2[don2$date<=(last(don2$date)-NbJourValid),]    
+
+ee=RegBest(y=App$nbLibereLit,x=App[,-c(1:(nbvar+Jmin-1),ncol(App))],int=FALSE)
+
+Prediction <- matrix(NA,nlevels(App$dept),NbJourValid)
+for (j in 1:NbJourValid) Prediction[,j] <- as.matrix(App[App$date==last(App$date), which(colnames(App)%in%rownames(coef(ee$best)))-j])%*%as.matrix(coef(ee$best)[,1])
+rownames(Prediction) <- levels(App$dept)
+colnames(Prediction)[1:NbJourValid] <- paste0("J+",1:NbJourValid)
+Prediction <- cbind.data.frame(Prediction,lm=rowSums(Prediction))
+rownames(Prediction) <- levels(App$dept)
+colnames(Prediction)[1:NbJourValid] <- paste0("reg J+",1:NbJourValid)
+
+foret <- randomForest(nbLibereLit~.,data=App[,-(1:(nbvar+Jmin-1))])
+predForet <- matrix(NA,nlevels(App$dept),NbJourValid)
+for (j in 1:NbJourValid){
+  # we start by column corresponding to 1st date, -j; untill the last date, -j
+  new <- App[App$date==last(App$date),(nbvar+Jmin-j):(ncol(App)-1-j)]
+  colnames(new) <- colnames(App[,-c(1:(nbvar+Jmin-1),ncol(App))])
+  predForet[,j] <- predict(foret,newdata=new)
+}
+predForet <- cbind.data.frame(predForet,rf=rowSums(predForet))
+rownames(predForet) <- levels(App$dept)
+colnames(predForet)[1:NbJourValid] <- paste0("foret J+",1:NbJourValid)
+
+predVeille <- App$n_covid_deaths[App$date==last(App$date)]+ App$n_covid_healed[App$date==last(App$date)] *NbJourValid
+
+JminMoy <- 1
+JmaxMoy <- 20
+
+predMoyNew <- aggregate(don$n_covid_new_rea[(don$date<=last(App$date)-JminMoy)&(don$date>=last(App$date)-JmaxMoy)],by=list(don$dept[(don$date<=last(App$date)-JminMoy)&(don$date>=last(App$date)-JmaxMoy)]),FUN=mean)$x 
+for (j in 2:NbJourValid) predMoyNew <- predMoyNew + aggregate(don$n_covid_new_rea[(don$date<=last(App$date)+max(0,j-JminMoy))&(don$date>=last(App$date)-JmaxMoy+1)],by=list(don$dept[(don$date<=last(App$date)+max(0,j-JminMoy))&(don$date>=last(App$date)-JmaxMoy+1)]),FUN=mean)$x
+
+
+dval <- don2[don2$date>(last(don2$date)-NbJourValid),]    ### training set: NbJourValid days are omitted
+Obs <- aggregate(dval$n_covid_deaths+dval$n_covid_healed, by=list(dval$dept), FUN=sum)
+rownames(Obs) <- Obs[,1]
+Obs <- Obs[,-1,drop=FALSE]
+colnames(Obs)[1] <- "obs"
+resultat <- cbind.data.frame(lm=Prediction$lm,rf=predForet$rf,average=predMoyNew,dayBefore=predVeille,Obs)
+
+erreur[d,] <- apply(abs(resultat-resultat$obs),2,mean)[1:4]
+}
+rownames(erreur) <- paste(last(don$date)-NbJourValid-(1:length(choixDate)-1))
+colnames(erreur) <- colnames(resultat)[1:4]
+print(round(erreur,2))
+```
+
+## Prediction for the next two days (Table 2)
+
+```{r}
+NbJourValid <- 2
+don2 = don[which(apply(is.na(don),1,sum)==0),]
+
+require(FactoMineR)
+ee=RegBest(y=don2$nbLibereLit,x=don2[,-c(1:(nbvar+Jmin-1),ncol(don2))],int=FALSE)
+
+Prediction <- matrix(NA,nlevels(don2$dept),2)
+for (j in 1:2) Prediction[,j] <- as.matrix(don2[don2$date==last(don2$date), which(colnames(don2)%in%rownames(coef(ee$best)))-j])%*%as.matrix(coef(ee$best)[,1])
+rownames(Prediction) <- levels(don2$dept)
+colnames(Prediction)[1:2] <- paste0("J+",1:NbJourValid)
+Prediction <- cbind.data.frame(Prediction,reg_sortie=rowSums(Prediction))
+rownames(Prediction) <- levels(don2$dept)
+colnames(Prediction)[1:2] <- paste0("reg J+",1:NbJourValid)
+
+require(randomForest)
+foret <- randomForest(nbLibereLit~.,data=don2[,-(1:(nbvar+Jmin-1))])
+predForet <- matrix(NA,nlevels(don2$dept),NbJourValid)
+for (j in 1:2){
+  # we start by column corresponding to 1st date, -j; untill the last date, -j
+  new <- don2[don2$date==last(don2$date),(nbvar+Jmin-j):(ncol(don2)-1-j)]    colnames(new) <- colnames(don2[,-c(1:(nbvar+Jmin-1),ncol(don2))])
+  predForet[,j] <- predict(foret,newdata=new)
+}
+predForet <- cbind.data.frame(predForet,foret_sortie=rowSums(predForet))
+rownames(predForet) <- levels(don2$dept)
+colnames(predForet)[1:2] <- paste0("foret J+",1:NbJourValid)
+
+JminMoy <- 1
+JmaxMoy <- 20
+predMoyNew <- aggregate(don$n_covid_new_rea[(don$date<=last(don$date)-JminMoy)&(don$date>=last(don$date)-JmaxMoy)],by=list(don$dept[(don$date<=last(don$date)-JminMoy)&(don$date>=last(don$date)-JmaxMoy)]),FUN=mean)$x 
+for (j in 2:NbJourValid) predMoyNew <- predMoyNew + aggregate(don$n_covid_new_rea[(don$date<=last(don$date)-JminMoy+j)&(don$date>=last(don$date)-JmaxMoy+1)],by=list(don$dept[(don$date<=last(don$date)-JminMoy+j)&(don$date>=last(don$date)-JmaxMoy+1)]),FUN=mean)$x
+
+
+res <- round(cbind(lm=Prediction[,3,drop=FALSE],RF=predForet[,3],average=predMoyNew),0)
+printPred=NULL
+for (i in 1:nrow(Prediction)) {
+  printPred <- paste0(printPred,rownames(res)[i],"&",paste(res[i,],collapse="&"),"\\")
+}
+res
+```
