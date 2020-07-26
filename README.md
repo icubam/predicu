@@ -29,3 +29,8 @@ python -m predicu.plot \
     --plots [PLOT [PLOT ...]] \
     --output-type {tex,png,pdf}
 ```
+
+## SIR model
+
+This repository also contains a SIR like model used in the ICUBAM paper. See
+[./sir_model/README.md](./sir_model/README.md) for more details.
